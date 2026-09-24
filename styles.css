@@ -55,14 +55,7 @@ body { padding-top: 72px; }
 .brand { display: flex; align-items: center; gap: 12px; }
 .brand strong, .brand small { display: block; }
 .brand small { color: var(--muted); margin-top: 2px; }
-.mark {
-  width: 42px;
-  height: 28px;
-  border-radius: 6px;
-  background:
-    linear-gradient(#c9862d, #c9862d) 0 11px / 100% 5px no-repeat,
-    #1b2b40;
-}
+.mark { width: 42px; height: 28px; display: block; flex: 0 0 auto; }
 .switches { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
 .icon-btn, .github {
   width: 42px;
