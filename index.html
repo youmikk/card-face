@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>卡面设计生成器</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="bar">
+    <div class="brand">
+      <span class="mark" aria-hidden="true"></span>
+      <div><strong data-i18n="title">卡面设计生成器</strong></div>
+    </div>
+    <div class="switches">
+      <div class="seg" role="group" aria-label="Language">
+        <button type="button" class="switch" data-lang="zh">中文</button>
+        <button type="button" class="switch" data-lang="en">EN</button>
+      </div>
+      <div class="seg" role="group" aria-label="Theme">
+        <button type="button" class="switch" data-theme="light" data-i18n="themeLight">浅色</button>
+        <button type="button" class="switch" data-theme="dark" data-i18n="theme">深色</button>
+      </div>
+      <a class="github" id="github" href="https://github.com/" target="_blank" rel="noreferrer" aria-label="GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38v-1.33C3.73 14.91 3.14 13.73 3.14 13.73c-.36-.91-.89-1.15-.89-1.15-.73-.5.06-.49.06-.49.8.06 1.23.83 1.23.83.72 1.22 1.87.87 2.33.66.07-.52.28-.87.5-1.07-2.2-.25-4.51-1.1-4.51-4.89 0-1.08.39-1.96 1.02-2.65-.1-.25-.44-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.56 9.56 0 0 1 8 3.87c.85 0 1.7.11 2.5.34 1.9-1.29 2.74-1.02 2.74-1.02.55 1.37.2 2.39.1 2.64.64.69 1.02 1.57 1.02 2.65 0 3.8-2.31 4.63-4.52 4.88.29.25.54.73.54 1.48v2.19c0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg></a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <section class="preview">
+      <div class="head"><h2 data-i18n="preview">卡面预览</h2><button type="button" id="export" class="export" data-i18n="export">导出 PNG</button></div>
+      <div class="stage">
+        <div class="card" id="card">
+          <canvas id="base" width="1536" height="969"></canvas>
+          <canvas id="reference" width="1536" height="969"></canvas>
+          <div id="layers"></div>
+          <div class="empty" id="empty">
+            <strong data-i18n="emptyTitle">上传一张图片作为卡面</strong>
+            <p data-i18n="emptyText">图片会按 1.586 : 1 铺满并居中，之后可以缩放和拖动调整构图。</p>
+            <button type="button" id="pick-empty" data-i18n="choose">选择图片</button>
+          </div>
+        </div>
+
+      </div>
+      <div class="foot">
+        <label class="check"><input id="rounded" type="checkbox" checked /> <span data-i18n="rounded">按 3.18 mm 圆角呈现（导出同步）</span></label>
+        <div class="modes" id="modes">
+          <button type="button" data-mode="card" class="active" data-i18n="dragCard">拖动卡面</button>
+          <button type="button" data-mode="reference" data-i18n="dragRef">拖动参考图</button>
+        </div>
+        <button type="button" id="clear" class="quiet" data-i18n="clear">清空</button>
+      </div>
+      <section class="logo-panel">
+        <div class="head"><h2>Logo</h2><span id="logo-count">0</span></div>
+        <label class="drop compact" id="logo-drop">
+          <strong data-i18n="uploadLogo">上传自己的 logo</strong>
+          <small id="logo-hint" data-i18n="logoNeed">请先上传卡面图片</small>
+          <input id="logo-file" type="file" accept="image/*,.svg" multiple disabled />
+        </label>
+        <div class="tabs" id="tabs"></div>
+        <div class="library" id="library"></div>
+      </section>
+    </section>
+
+    <aside>
+      <section>
+        <div class="head"><h2 data-i18n="cardImage">卡面图片</h2><span>1.586 : 1</span></div>
+        <label class="drop">
+          <strong data-i18n="dropCard">拖拽图片到此处，或点击选择</strong>
+          <small>JPG、PNG、WebP、SVG</small>
+          <input id="photo" type="file" accept="image/*,.svg" />
+        </label>
+        <div class="pair">
+          <button type="button" id="fit-card" data-i18n="refit">重新匹配</button>
+          <label><span data-i18n="zoom">缩放</span> <input id="card-scale" type="range" min="100" max="300" value="100" /></label>
+        </div>
+        <p class="note" data-i18n="cardNote">图片会等比缩放并居中填满卡面，超出部分自动裁掉。</p>
+      </section>
+
+      <section>
+        <div class="head"><h2 data-i18n="reference">参考图</h2><span>1.586 : 1</span></div>
+        <label class="drop">
+          <strong data-i18n="dropRef">拖拽参考图到此处，或点击选择</strong>
+          <small data-i18n="refHint">只用于对位，不会出现在导出的 PNG 里</small>
+          <input id="ref-file" type="file" accept="image/*,.svg" />
+        </label>
+        <div id="ref-controls" hidden>
+          <label class="check"><input id="ref-show" type="checkbox" checked /> <span data-i18n="showRef">显示参考图</span></label>
+          <label><span data-i18n="opacity">透明度</span> <input id="ref-opacity" type="range" min="10" max="100" value="45" /></label>
+          <button type="button" id="fit-ref" data-i18n="refit">重新匹配</button>
+        </div>
+      </section>
+
+      <section>
+        <h2 data-i18n="adjust">调整</h2>
+        <div id="props"><p class="muted" data-i18n="selectLogo">点击卡面上的 logo 进行编辑</p></div>
+        <div id="editor" hidden>
+          <p id="obj-name" class="obj-name"></p>
+          <label><span data-i18n="size">大小</span> <input id="scale" type="range" min="36" max="520" value="140" /></label>
+          <label><span data-i18n="rotate">旋转</span> <input id="rotate" type="range" min="-180" max="180" value="0" /></label>
+          <label><span data-i18n="opacity">透明度</span> <input id="opacity" type="range" min="10" max="100" value="100" /></label>
+          <label class="check"><input id="lock" type="checkbox" /> <span data-i18n="lock">锁定</span></label>
+          <div class="pair">
+            <button type="button" id="layer-up" data-i18n="up">上移</button>
+            <button type="button" id="layer-down" data-i18n="down">下移</button>
+            <button type="button" id="remove" data-i18n="delete">删除</button>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="head"><h2 data-i18n="layers">图层</h2><span id="layer-count">0</span></div>
+        <div id="layer-list" class="layers"><p class="muted" data-i18n="noLogo">暂无 logo</p></div>
+      </section>
+
+      <p class="legal" data-i18n="legal">输出只是视觉设计文件，不代表任何机构发行的卡片。图标来自公开素材库，使用前请确认你有相应授权。</p>
+    </aside>
+  </div>
+  <div class="toast" id="toast" hidden role="status"></div>
+  <script src="app.js"></script>
+</html>
