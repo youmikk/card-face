@@ -463,9 +463,7 @@ function applyLanguage() {
   });
   document.querySelector("#lang-toggle").textContent = language === "zh" ? "EN" : "中";
   const requestTitle = language === "zh" ? "申请添加 logo" : "Request a logo";
-  const requestBody = language === "zh"
-    ? "名称：\n\n来源或官网：\n\n用途说明：\n\n请附上你有权使用的 SVG 或 PNG。"
-    : "Name:\n\nSource or website:\n\nWhere it will be used:\n\nAttach an SVG or PNG you have permission to use.";
+  const requestBody = language === "zh" ? "银行卡：\n" : "Card:\n";
   document.querySelector("#request-logo").href = `https://github.com/youmikk/card-face/issues/new?title=${encodeURIComponent(requestTitle)}&body=${encodeURIComponent(requestBody)}`;
   groups = buildGroups();
   marks = Object.fromEntries(groups.flatMap((group) => group.marks.map((mark) => [mark.id, mark])));
