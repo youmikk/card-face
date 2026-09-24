@@ -77,6 +77,13 @@ body { padding-top: 72px; }
 .sheet { position: fixed; z-index: 40; inset: 0; display: grid; place-items: center; padding: 18px; background: rgba(15, 23, 32, 0.62); }
 .sheet[hidden] { display: none; }
 .sheet-card { width: min(100%, 420px); padding: 16px; border-radius: 18px; background: var(--panel); color: var(--ink); box-shadow: 0 18px 50px rgba(15, 23, 32, 0.28); }
+.terms { z-index: 50; }
+.terms .sheet-card { width: min(100%, 520px); }
+.terms-body { max-height: min(52vh, 360px); overflow: auto; margin: 12px 0 16px; }
+.terms-body h3 { margin: 14px 0 4px; font-size: 14px; }
+.terms-body h3:first-child { margin-top: 0; }
+.terms-body p { margin: 0; font-size: 14px; line-height: 1.65; }
+#terms-accept { width: 100%; border: 0; border-radius: 12px; min-height: 46px; background: var(--navy); color: var(--on-accent); }
 .support-choices { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
 .support-choices a, .support-choices button { min-height: 48px; flex: 1 1 140px; border: 0; border-radius: 12px; background: var(--soft); color: var(--ink); display: grid; place-items: center; text-decoration: none; }
 .support-choices .active { background: var(--navy); color: var(--on-accent); }
