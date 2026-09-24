@@ -73,6 +73,7 @@ body { padding-top: 72px; }
   overflow: hidden;
 }
 .icon-btn svg, .github svg { width: 20px; height: 20px; display: block; }
+.support { color: #e2556a; }
 .icon-btn .moon, body.dark .icon-btn .sun { display: none; }
 body.dark .icon-btn .moon { display: block; }
 .icon-btn { font-size: 13px; font-weight: 700; line-height: 1; }
