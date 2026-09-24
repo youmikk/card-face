@@ -471,11 +471,17 @@ document.querySelector("#export").addEventListener("click", async () => {
   const out = document.createElement("canvas");
   out.width = CARD_W; out.height = CARD_H;
   const context = out.getContext("2d");
+  if (rounded) {
+    roundedPath(context, CARD_W, CARD_H, RADIUS);
+    context.clip();
+  }
   context.drawImage(base, 0, 0);
   for (const item of items) {
-    const image = await loadImage(item.src);
+    let image;
+    try { image = await loadImage(item.src); }
+    catch { continue; }
     const width = (item.width / card.clientWidth) * CARD_W;
-    const height = width * (image.height / image.width);
+    const height = width * (image.naturalHeight || image.height) / (image.naturalWidth || image.width);
     context.save();
     context.translate((item.x / 100) * CARD_W, (item.y / 100) * CARD_H);
     context.rotate((item.rotate * Math.PI) / 180);
@@ -483,10 +489,15 @@ document.querySelector("#export").addEventListener("click", async () => {
     context.drawImage(image, -width / 2, -height / 2, width, height);
     context.restore();
   }
+  const blob = await new Promise((resolve) => out.toBlob(resolve, "image/png"));
+  if (!blob) return;
+  const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.download = "card-face.png";
-  link.href = out.toDataURL("image/png");
+  link.href = url;
   link.click();
+  if (!("download" in HTMLAnchorElement.prototype)) location.href = url;
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 });
 
 function loadImage(src) {
