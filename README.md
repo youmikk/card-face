@@ -8,13 +8,15 @@
 
 ## 用法
 
-- 上传一张卡面图片。图片会铺满卡面，可以缩放和拖动调整构图。
+- 上传一张卡面图片。图片会铺满卡面，可以缩放和拖动调整构图。手机上可以在预览区域双指缩放。
 - 没有卡面时可以浏览 logo，但不能添加。点选时会提示先上传卡面。
-- 从分类里添加 logo，或一次上传多个自己的 logo（SVG、PNG、JPG、WebP）。
+- 可以先选择银行，再选择它的标志或带名称的组合标识。素材库也包含支付标识和交通联合。
+- 也可以一次上传多个自己的 logo（SVG、PNG、JPG、WebP）。
 - 选中 logo 后可以拖动、缩放、旋转、调整透明度，也可以锁定和调整图层顺序。
 - 参考图叠在卡面之上、logo 之下，只用于对位，不会进入导出的 PNG。
 - 圆角同时作用于预览和导出。
-- 支持中文 / English，以及浅色 / 深色。语言和主题会记在本地。
+- 支持中文 / English，以及浅色 / 深色。语言、主题和首次使用确认会记在本地。
+- 首次打开时会显示使用条款。导出的 PNG 只是视觉设计文件。
 
 直接打开 `index.html` 即可使用。
 
@@ -23,5 +25,6 @@
 - [svg-credit-card-payment-icons](https://github.com/aaronfagan/svg-credit-card-payment-icons)
 - [payment-and-carrier-icons](https://github.com/Ricki-BumbleDev/payment-and-carrier-icons)
 - [card-logos](https://github.com/Yaqioooong/card-logos)
+- [SVGLOGO](https://github.com/HeyHuazi/SVGLOGO)
 
 这些标识只用于设计预览。公开使用前请确认你有相应授权。导出的文件只是视觉设计，不代表任何机构发行的卡片。
