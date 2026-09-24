@@ -317,17 +317,35 @@ function startLogoDrag(event, item) {
   renderLogos();
 }
 
+const pointers = new Map();
 card.addEventListener("pointerdown", (event) => {
   if (event.target.closest(".badge")) return;
   const image = dragMode === "reference" ? refImage : cardImage;
   if (!image) return;
+  pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
   const view = dragMode === "reference" ? refView : cardView;
-  drag = { type: dragMode, pointerId: event.pointerId, x: view.x, y: view.y, clientX: event.clientX, clientY: event.clientY };
+  drag = { type: dragMode, pointerId: event.pointerId, x: view.x, y: view.y, clientX: event.clientX, clientY: event.clientY, scale: view.scale, pinch: 0 };
   card.setPointerCapture(event.pointerId);
 });
 
+function pinchDistance() {
+  const points = [...pointers.values()];
+  return points.length >= 2 ? Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y) : 0;
+}
+
 card.addEventListener("pointermove", (event) => {
-  if (!drag || event.pointerId !== drag.pointerId) return;
+  if (pointers.has(event.pointerId)) pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  if (!drag) return;
+  if (pointers.size >= 2 && (drag.type === "card" || drag.type === "reference")) {
+    const distance = pinchDistance();
+    const view = drag.type === "reference" ? refView : cardView;
+    if (!drag.pinch) drag.pinch = distance;
+    view.scale = clamp(drag.scale * distance / Math.max(drag.pinch, 1), 1, 3);
+    if (drag.type === "card") document.querySelector("#card-scale").value = Math.round(view.scale * 100);
+    paint();
+    return;
+  }
+  if (event.pointerId !== drag.pointerId) return;
   const rect = card.getBoundingClientRect();
   const item = items.find((entry) => entry.id === drag.id);
   if (drag.type === "scale" || drag.type === "rotate") {
@@ -366,7 +384,15 @@ function pan(view, image, event) {
   if (extraY > 0) view.y = clamp(drag.y - ((event.clientY - drag.clientY) / rect.height) * (CARD_H / extraY), 0, 1);
 }
 
-function endDrag(event) { if (drag && (!event.pointerId || event.pointerId === drag.pointerId)) drag = null; }
+function endDrag(event) {
+  if (event.pointerId) pointers.delete(event.pointerId);
+  if (pointers.size >= 2 && drag) {
+    drag.pinch = 0;
+    drag.scale = (drag.type === "reference" ? refView : cardView).scale;
+    return;
+  }
+  if (drag && (!event.pointerId || event.pointerId === drag.pointerId || pointers.size === 0)) drag = null;
+}
 card.addEventListener("pointerup", endDrag);
 card.addEventListener("pointercancel", endDrag);
 
