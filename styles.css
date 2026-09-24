@@ -67,18 +67,22 @@ body { padding-top: 72px; }
 .icon-btn, .github {
   width: 42px;
   height: 42px;
+  min-width: 42px;
+  min-height: 42px;
+  flex: 0 0 42px;
+  padding: 0;
   display: grid;
   place-items: center;
   border: 1px solid var(--line);
   border-radius: 50%;
   color: var(--ink);
   background: var(--panel);
-  border: 1px solid var(--line);
+  overflow: hidden;
 }
 .icon-btn svg, .github svg { width: 20px; height: 20px; display: block; }
 .icon-btn .moon, body.dark .icon-btn .sun { display: none; }
 body.dark .icon-btn .moon { display: block; }
-.icon-btn { font-size: 13px; font-weight: 700; }
+.icon-btn { font-size: 13px; font-weight: 700; line-height: 1; }
 .export, .empty button, #pick-empty {
   border: 0;
   border-radius: 10px;
