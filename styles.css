@@ -74,6 +74,14 @@ body { padding-top: 72px; }
 }
 .icon-btn svg, .github svg { width: 20px; height: 20px; display: block; }
 .support { color: #e2556a; }
+.sheet { position: fixed; z-index: 40; inset: 0; display: grid; place-items: center; padding: 18px; background: rgba(15, 23, 32, 0.62); }
+.sheet[hidden] { display: none; }
+.sheet-card { width: min(100%, 420px); padding: 16px; border-radius: 18px; background: var(--panel); color: var(--ink); box-shadow: 0 18px 50px rgba(15, 23, 32, 0.28); }
+.support-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+.support-choices a, .support-choices button { min-height: 48px; border: 0; border-radius: 12px; background: var(--navy); color: var(--on-accent); display: grid; place-items: center; text-decoration: none; }
+#wechat-code { margin: 14px 0 0; }
+#wechat-code[hidden] { display: none; }
+#wechat-code img { width: min(100%, 280px); display: block; margin: 0 auto; border-radius: 12px; background: #fff; }
 .icon-btn .moon, body.dark .icon-btn .sun { display: none; }
 body.dark .icon-btn .moon { display: block; }
 .icon-btn { font-size: 13px; font-weight: 700; line-height: 1; }
