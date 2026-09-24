@@ -234,6 +234,7 @@ input[type="range"] { width: 100%; }
 .handle.scale { left: 100%; top: 100%; cursor: nwse-resize; }
 .handle.rotate { left: 50%; top: -24px; cursor: grab; background: var(--navy); }
 .handle.lock { left: 0; top: 0; cursor: pointer; background: var(--navy); }
+.handle.delete { left: 100%; top: 0; cursor: pointer; background: #c44747; }
 .badge.locked .handle.lock { background: var(--teal); }
 .stage { overflow: hidden; }
 .logo-panel.disabled .drop { opacity: 0.55; pointer-events: none; }

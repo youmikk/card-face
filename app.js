@@ -230,7 +230,7 @@ function renderLogos() {
     image.draggable = false;
     node.append(image);
     node.addEventListener("pointerdown", (event) => startLogoDrag(event, item));
-    if (item.id === selected) node.append(makeLock(item));
+    if (item.id === selected) node.append(makeLock(item), makeDelete(item));
     if (item.id === selected && !item.locked) node.append(makeHandle("scale", item), makeHandle("rotate", item));
     layers.appendChild(node);
   });
@@ -269,6 +269,23 @@ function makeLock(item) {
   handle.addEventListener("click", (event) => {
     event.stopPropagation();
     item.locked = !item.locked;
+    renderLogos();
+  });
+  return handle;
+
+}
+
+function makeDelete(item) {
+  const handle = document.createElement("button");
+  handle.type = "button";
+  handle.className = "handle delete";
+  handle.setAttribute("aria-label", uiText[language].delete);
+  handle.innerHTML = `<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+  handle.addEventListener("pointerdown", (event) => event.stopPropagation());
+  handle.addEventListener("click", (event) => {
+    event.stopPropagation();
+    items = items.filter((entry) => entry.id !== item.id);
+    if (selected === item.id) selected = items.at(-1)?.id ?? null;
     renderLogos();
   });
   return handle;
