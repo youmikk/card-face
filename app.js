@@ -158,6 +158,7 @@ function renderLogos() {
     image.draggable = false;
     node.append(image);
     node.addEventListener("pointerdown", (event) => startLogoDrag(event, item));
+    if (item.id === selected) node.append(makeLock(item));
     if (item.id === selected && !item.locked) node.append(makeHandle("scale", item), makeHandle("rotate", item));
     layers.appendChild(node);
   });
@@ -184,6 +185,22 @@ function renderLayers() {
 
 function current() { return items.find((item) => item.id === selected) || null; }
 
+function makeLock(item) {
+  const handle = document.createElement("button");
+  handle.type = "button";
+  handle.className = "handle lock";
+  handle.setAttribute("aria-label", copy().locked);
+  handle.innerHTML = item.locked
+    ? `<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2"/></svg>`
+    : `<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 11V8a4 4 0 0 1 7.5-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+  handle.addEventListener("pointerdown", (event) => event.stopPropagation());
+  handle.addEventListener("click", (event) => {
+    event.stopPropagation();
+    item.locked = !item.locked;
+    renderLogos();
+  });
+  return handle;
+}
 
 function makeHandle(mode, item) {
   const handle = document.createElement("button");
@@ -444,9 +461,7 @@ function applyLanguage() {
   document.querySelectorAll("[data-i18n]").forEach((node) => {
     node.textContent = uiText[language][node.dataset.i18n];
   });
-  document.querySelectorAll("[data-lang]").forEach((node) => node.classList.toggle("active", node.dataset.lang === language));
-  const theme = document.body.classList.contains("dark") ? "dark" : "light";
-  document.querySelectorAll("[data-theme]").forEach((node) => node.classList.toggle("active", node.dataset.theme === theme));
+  document.querySelector("#lang-toggle").textContent = language === "zh" ? "EN" : "中";
   groups = buildGroups();
   marks = Object.fromEntries(groups.flatMap((group) => group.marks.map((mark) => [mark.id, mark])));
   renderTabs();
@@ -455,20 +470,16 @@ function applyLanguage() {
   syncLogoAvailability();
 }
 
-document.querySelectorAll("[data-lang]").forEach((button) => {
-  button.addEventListener("click", () => {
-    language = button.dataset.lang;
-    localStorage.setItem("card-lang", language);
-    applyLanguage();
-  });
+document.querySelector("#lang-toggle").addEventListener("click", () => {
+  language = language === "zh" ? "en" : "zh";
+  localStorage.setItem("card-lang", language);
+  applyLanguage();
 });
 
-document.querySelectorAll("[data-theme]").forEach((button) => {
-  button.addEventListener("click", () => {
-    document.body.classList.toggle("dark", button.dataset.theme === "dark");
-    localStorage.setItem("card-theme", button.dataset.theme);
-    applyLanguage();
-  });
+document.querySelector("#theme-toggle").addEventListener("click", () => {
+  const dark = !document.body.classList.contains("dark");
+  document.body.classList.toggle("dark", dark);
+  localStorage.setItem("card-theme", dark ? "dark" : "light");
 });
 if (localStorage.getItem("card-theme") === "dark") document.body.classList.add("dark");
 applyLanguage();
