@@ -1,0 +1,917 @@
+[
+  {
+    "id": "BOSC",
+    "name": "上海银行",
+    "icon": "assets/banks/BOSC.svg",
+    "wordmark": "assets/banks/BOSC_wordmark.svg"
+  },
+  {
+    "id": "SRBANK",
+    "name": "上饶银行",
+    "icon": "assets/banks/SRBANK.svg"
+  },
+  {
+    "id": "BOD",
+    "name": "东莞银行",
+    "icon": "assets/banks/BOD.svg",
+    "wordmark": "assets/banks/BOD_wordmark.svg"
+  },
+  {
+    "id": "DYCCB",
+    "name": "东营银行",
+    "icon": "assets/banks/DYCCB.svg",
+    "wordmark": "assets/banks/DYCCB_wordmark.svg"
+  },
+  {
+    "id": "CITIC",
+    "name": "中信银行",
+    "icon": "assets/banks/CITIC.svg",
+    "wordmark": "assets/banks/CITIC_wordmark.svg"
+  },
+  {
+    "id": "ZYBANK",
+    "name": "中原银行",
+    "icon": "assets/banks/ZYBANK.svg",
+    "wordmark": "assets/banks/ZYBANK_wordmark.svg"
+  },
+  {
+    "id": "PBOC",
+    "name": "中国人民银行",
+    "icon": "assets/banks/PBOC.svg",
+    "wordmark": "assets/banks/PBOC_wordmark.svg"
+  },
+  {
+    "id": "CEB",
+    "name": "中国光大银行",
+    "icon": "assets/banks/CEB.svg",
+    "wordmark": "assets/banks/CEB_wordmark.svg"
+  },
+  {
+    "id": "ADBC",
+    "name": "中国农业发展银行",
+    "icon": "assets/banks/ADBC.svg"
+  },
+  {
+    "id": "ABC",
+    "name": "中国农业银行",
+    "icon": "assets/banks/ABC.svg",
+    "wordmark": "assets/banks/ABC_wordmark.svg"
+  },
+  {
+    "id": "ICBC",
+    "name": "中国工商银行",
+    "icon": "assets/banks/ICBC.svg",
+    "wordmark": "assets/banks/ICBC_wordmark.svg"
+  },
+  {
+    "id": "CCB",
+    "name": "中国建设银行",
+    "icon": "assets/banks/CCB.svg",
+    "wordmark": "assets/banks/CCB_wordmark.svg"
+  },
+  {
+    "id": "CMBC",
+    "name": "中国民生银行",
+    "icon": "assets/banks/CMBC.svg",
+    "wordmark": "assets/banks/CMBC_wordmark.svg"
+  },
+  {
+    "id": "EIBOF",
+    "name": "中国进出口银行",
+    "icon": "assets/banks/EIBOF.svg",
+    "wordmark": "assets/banks/EIBOF_wordmark.svg"
+  },
+  {
+    "id": "PSBC",
+    "name": "中国邮政储蓄银行",
+    "icon": "assets/banks/PSBC.svg",
+    "wordmark": "assets/banks/PSBC_wordmark.svg"
+  },
+  {
+    "id": "BOC",
+    "name": "中国银行",
+    "icon": "assets/banks/BOC.svg",
+    "wordmark": "assets/banks/BOC_wordmark.svg"
+  },
+  {
+    "id": "LSBC",
+    "name": "临商银行",
+    "icon": "assets/banks/LSBC.svg",
+    "wordmark": "assets/banks/LSBC_wordmark.svg"
+  },
+  {
+    "id": "BODD",
+    "name": "丹东银行",
+    "icon": "assets/banks/BODD.svg",
+    "wordmark": "assets/banks/BODD_wordmark.svg"
+  },
+  {
+    "id": "WHBANK",
+    "name": "乌海银行",
+    "icon": "assets/banks/WHBANK.svg",
+    "wordmark": "assets/banks/WHBANK_wordmark.svg"
+  },
+  {
+    "id": "UCCB",
+    "name": "乌鲁木齐市商业银行",
+    "icon": "assets/banks/UCCB.svg",
+    "wordmark": "assets/banks/UCCB_wordmark.svg"
+  },
+  {
+    "id": "LSCCB",
+    "name": "乐山市商业银行",
+    "icon": "assets/banks/LSCCB.svg",
+    "wordmark": "assets/banks/LSCCB_wordmark.svg"
+  },
+  {
+    "id": "JJCCB",
+    "name": "九江银行",
+    "icon": "assets/banks/JJCCB.svg",
+    "wordmark": "assets/banks/JJCCB_wordmark.svg"
+  },
+  {
+    "id": "YNHTBANK",
+    "name": "云南红塔银行",
+    "icon": "assets/banks/YNHTBANK.svg",
+    "wordmark": "assets/banks/YNHTBANK_wordmark.svg"
+  },
+  {
+    "id": "COMM",
+    "name": "交通银行",
+    "icon": "assets/banks/COMM.svg",
+    "wordmark": "assets/banks/COMM_wordmark.svg"
+  },
+  {
+    "id": "BOBD",
+    "name": "保定银行",
+    "icon": "assets/banks/BOBD.svg",
+    "wordmark": "assets/banks/BOBD_wordmark.svg"
+  },
+  {
+    "id": "LZBANK",
+    "name": "兰州银行",
+    "icon": "assets/banks/LZBANK.svg",
+    "wordmark": "assets/banks/LZBANK_wordmark.svg"
+  },
+  {
+    "id": "CIB",
+    "name": "兴业银行",
+    "icon": "assets/banks/CIB.svg",
+    "wordmark": "assets/banks/CIB_wordmark.svg"
+  },
+  {
+    "id": "H3CB",
+    "name": "内蒙古银行",
+    "icon": "assets/banks/H3CB.svg"
+  },
+  {
+    "id": "BOB",
+    "name": "北京银行",
+    "icon": "assets/banks/BOB.svg",
+    "wordmark": "assets/banks/BOB_wordmark.svg"
+  },
+  {
+    "id": "HXB",
+    "name": "华夏银行",
+    "icon": "assets/banks/HXB.svg",
+    "wordmark": "assets/banks/HXB_wordmark.svg"
+  },
+  {
+    "id": "HRXJB",
+    "name": "华融湘江银行",
+    "icon": "assets/banks/HRXJB.svg",
+    "wordmark": "assets/banks/HRXJB_wordmark.svg"
+  },
+  {
+    "id": "NJCB",
+    "name": "南京银行",
+    "icon": "assets/banks/NJCB.svg",
+    "wordmark": "assets/banks/NJCB_wordmark.svg"
+  },
+  {
+    "id": "XMINTB",
+    "name": "厦门国际银行",
+    "icon": "assets/banks/XMINTB.svg",
+    "wordmark": "assets/banks/XMINTB_wordmark.svg"
+  },
+  {
+    "id": "XMBANK",
+    "name": "厦门银行",
+    "icon": "assets/banks/XMBANK.svg",
+    "wordmark": "assets/banks/XMBANK_wordmark.svg"
+  },
+  {
+    "id": "TZBANK",
+    "name": "台州银行",
+    "icon": "assets/banks/TZBANK.svg",
+    "wordmark": "assets/banks/TZBANK_wordmark.svg"
+  },
+  {
+    "id": "BOJL",
+    "name": "吉林银行",
+    "icon": "assets/banks/BOJL.svg",
+    "wordmark": "assets/banks/BOJL_wordmark.svg"
+  },
+  {
+    "id": "HMCCB",
+    "name": "哈密市商业银行",
+    "icon": "assets/banks/HMCCB.svg",
+    "wordmark": "assets/banks/HMCCB_wordmark.svg"
+  },
+  {
+    "id": "HRBCB",
+    "name": "哈尔滨银行",
+    "icon": "assets/banks/HRBCB.svg",
+    "wordmark": "assets/banks/HRBCB_wordmark.svg"
+  },
+  {
+    "id": "BOTS",
+    "name": "唐山银行",
+    "icon": "assets/banks/BOTS.svg",
+    "wordmark": "assets/banks/BOTS_wordmark.svg"
+  },
+  {
+    "id": "JXBANK",
+    "name": "嘉兴银行",
+    "icon": "assets/banks/JXBANK.svg",
+    "wordmark": "assets/banks/JXBANK_wordmark.svg"
+  },
+  {
+    "id": "SCTFB",
+    "name": "四川天府银行",
+    "icon": "assets/banks/SCTFB.svg",
+    "wordmark": "assets/banks/SCTFB_wordmark.svg"
+  },
+  {
+    "id": "SCB",
+    "name": "四川银行",
+    "icon": "assets/banks/SCB.svg",
+    "wordmark": "assets/banks/SCB_wordmark.svg"
+  },
+  {
+    "id": "CDB",
+    "name": "国家开发银行",
+    "icon": "assets/banks/CDB.svg",
+    "wordmark": "assets/banks/CDB_wordmark.svg"
+  },
+  {
+    "id": "DTB",
+    "name": "大同银行",
+    "icon": "assets/banks/DTB.svg",
+    "wordmark": "assets/banks/DTB_wordmark.svg"
+  },
+  {
+    "id": "DLB",
+    "name": "大连银行",
+    "icon": "assets/banks/DLB.svg",
+    "wordmark": "assets/banks/DLB_wordmark.svg"
+  },
+  {
+    "id": "BOTJ",
+    "name": "天津银行",
+    "icon": "assets/banks/BOTJ.svg",
+    "wordmark": "assets/banks/BOTJ_wordmark.svg"
+  },
+  {
+    "id": "WHCCB",
+    "name": "威海市商业银行",
+    "icon": "assets/banks/WHCCB.svg",
+    "wordmark": "assets/banks/WHCCB_wordmark.svg"
+  },
+  {
+    "id": "NXBANK",
+    "name": "宁夏银行",
+    "icon": "assets/banks/NXBANK.svg",
+    "wordmark": "assets/banks/NXBANK_wordmark.svg"
+  },
+  {
+    "id": "NDHB",
+    "name": "宁波东海银行",
+    "icon": "assets/banks/NDHB.svg"
+  },
+  {
+    "id": "NBCMB",
+    "name": "宁波通商银行",
+    "icon": "assets/banks/NBCMB.svg",
+    "wordmark": "assets/banks/NBCMB_wordmark.svg"
+  },
+  {
+    "id": "NBCB",
+    "name": "宁波银行",
+    "icon": "assets/banks/NBCB.svg",
+    "wordmark": "assets/banks/NBCB_wordmark.svg"
+  },
+  {
+    "id": "YBCCB",
+    "name": "宜宾市商业银行",
+    "icon": "assets/banks/YBCCB.svg",
+    "wordmark": "assets/banks/YBCCB_wordmark.svg"
+  },
+  {
+    "id": "FDBANK",
+    "name": "富滇银行",
+    "icon": "assets/banks/FDBANK.svg",
+    "wordmark": "assets/banks/FDBANK_wordmark.svg"
+  },
+  {
+    "id": "SPABANK",
+    "name": "平安银行",
+    "icon": "assets/banks/SPABANK.svg",
+    "wordmark": "assets/banks/SPABANK_wordmark.svg"
+  },
+  {
+    "id": "BOP",
+    "name": "平顶山银行",
+    "icon": "assets/banks/BOP.svg",
+    "wordmark": "assets/banks/BOP_wordmark.svg"
+  },
+  {
+    "id": "GHB",
+    "name": "广东华兴银行",
+    "icon": "assets/banks/GHB.svg",
+    "wordmark": "assets/banks/GHB_wordmark.svg"
+  },
+  {
+    "id": "NYBANK",
+    "name": "广东南粤银行",
+    "icon": "assets/banks/NYBANK.svg",
+    "wordmark": "assets/banks/NYBANK_wordmark.svg"
+  },
+  {
+    "id": "GDB",
+    "name": "广发银行",
+    "icon": "assets/banks/GDB.svg",
+    "wordmark": "assets/banks/GDB_wordmark.svg"
+  },
+  {
+    "id": "GZCB",
+    "name": "广州银行",
+    "icon": "assets/banks/GZCB.svg",
+    "wordmark": "assets/banks/GZCB_wordmark.svg"
+  },
+  {
+    "id": "BGB",
+    "name": "广西北部湾银行",
+    "icon": "assets/banks/BGB.svg",
+    "wordmark": "assets/banks/BGB_wordmark.svg"
+  },
+  {
+    "id": "KCCCB",
+    "name": "库尔勒市商业银行",
+    "icon": "assets/banks/KCCCB.svg",
+    "wordmark": "assets/banks/KCCCB_wordmark.svg"
+  },
+  {
+    "id": "BOLF",
+    "name": "廊坊银行",
+    "icon": "assets/banks/BOLF.svg",
+    "wordmark": "assets/banks/BOLF_wordmark.svg"
+  },
+  {
+    "id": "ZJKCCB",
+    "name": "张家口银行",
+    "icon": "assets/banks/ZJKCCB.svg",
+    "wordmark": "assets/banks/ZJKCCB_wordmark.svg"
+  },
+  {
+    "id": "DZBANK",
+    "name": "德州银行",
+    "icon": "assets/banks/DZBANK.svg",
+    "wordmark": "assets/banks/DZBANK_wordmark.svg"
+  },
+  {
+    "id": "HSBANK",
+    "name": "徽商银行",
+    "icon": "assets/banks/HSBANK.svg",
+    "wordmark": "assets/banks/HSBANK_wordmark.svg"
+  },
+  {
+    "id": "EGBANK",
+    "name": "恒丰银行",
+    "icon": "assets/banks/EGBANK.svg",
+    "wordmark": "assets/banks/EGBANK_wordmark.svg"
+  },
+  {
+    "id": "CDCB",
+    "name": "成都银行",
+    "icon": "assets/banks/CDCB.svg",
+    "wordmark": "assets/banks/CDCB_wordmark.svg"
+  },
+  {
+    "id": "CDBANK",
+    "name": "承德银行",
+    "icon": "assets/banks/CDBANK.svg",
+    "wordmark": "assets/banks/CDBANK_wordmark.svg"
+  },
+  {
+    "id": "FSCB",
+    "name": "抚顺银行",
+    "icon": "assets/banks/FSCB.svg",
+    "wordmark": "assets/banks/FSCB_wordmark.svg"
+  },
+  {
+    "id": "CMB",
+    "name": "招商银行",
+    "icon": "assets/banks/CMB.svg",
+    "wordmark": "assets/banks/CMB_wordmark.svg"
+  },
+  {
+    "id": "XJHB",
+    "name": "新疆汇和银行",
+    "icon": "assets/banks/XJHB.svg",
+    "wordmark": "assets/banks/XJHB_wordmark.svg"
+  },
+  {
+    "id": "XJB",
+    "name": "新疆银行",
+    "icon": "assets/banks/XJB.svg"
+  },
+  {
+    "id": "RZB",
+    "name": "日照银行",
+    "icon": "assets/banks/RZB.svg",
+    "wordmark": "assets/banks/RZB_wordmark.svg"
+  },
+  {
+    "id": "KLB",
+    "name": "昆仑银行",
+    "icon": "assets/banks/KLB.svg",
+    "wordmark": "assets/banks/KLB_wordmark.svg"
+  },
+  {
+    "id": "JZB",
+    "name": "晋中银行",
+    "icon": "assets/banks/JZB.svg"
+  },
+  {
+    "id": "JSB",
+    "name": "晋商银行",
+    "icon": "assets/banks/JSB.svg",
+    "wordmark": "assets/banks/JSB_wordmark.svg"
+  },
+  {
+    "id": "JINCHB",
+    "name": "晋城银行",
+    "icon": "assets/banks/JINCHB.svg",
+    "wordmark": "assets/banks/JINCHB_wordmark.svg"
+  },
+  {
+    "id": "QJCCCB",
+    "name": "曲靖市商业银行",
+    "icon": "assets/banks/QJCCCB.svg",
+    "wordmark": "assets/banks/QJCCCB_wordmark.svg"
+  },
+  {
+    "id": "BOCY",
+    "name": "朝阳银行",
+    "icon": "assets/banks/BOCY.svg",
+    "wordmark": "assets/banks/BOCY_wordmark.svg"
+  },
+  {
+    "id": "BCCB",
+    "name": "本溪市商业银行",
+    "icon": "assets/banks/BCCB.svg",
+    "wordmark": "assets/banks/BCCB_wordmark.svg"
+  },
+  {
+    "id": "HZCB",
+    "name": "杭州银行",
+    "icon": "assets/banks/HZCB.svg",
+    "wordmark": "assets/banks/HZCB_wordmark.svg"
+  },
+  {
+    "id": "ZZB",
+    "name": "枣庄银行",
+    "icon": "assets/banks/ZZB.svg",
+    "wordmark": "assets/banks/ZZB_wordmark.svg"
+  },
+  {
+    "id": "LZCCB",
+    "name": "柳州银行",
+    "icon": "assets/banks/LZCCB.svg",
+    "wordmark": "assets/banks/LZCCB_wordmark.svg"
+  },
+  {
+    "id": "GLBANK",
+    "name": "桂林银行",
+    "icon": "assets/banks/GLBANK.svg",
+    "wordmark": "assets/banks/GLBANK_wordmark.svg"
+  },
+  {
+    "id": "HKB",
+    "name": "汉口银行",
+    "icon": "assets/banks/HKB.svg",
+    "wordmark": "assets/banks/HKB_wordmark.svg"
+  },
+  {
+    "id": "JSBANK",
+    "name": "江苏银行",
+    "icon": "assets/banks/JSBANK.svg",
+    "wordmark": "assets/banks/JSBANK_wordmark.svg"
+  },
+  {
+    "id": "JSCJCB",
+    "name": "江苏长江商业银行",
+    "icon": "assets/banks/JSCJCB.svg",
+    "wordmark": "assets/banks/JSCJCB_wordmark.svg"
+  },
+  {
+    "id": "JXB",
+    "name": "江西银行",
+    "icon": "assets/banks/JXB.svg",
+    "wordmark": "assets/banks/JXB_wordmark.svg"
+  },
+  {
+    "id": "BOCZ",
+    "name": "沧州银行",
+    "icon": "assets/banks/BOCZ.svg",
+    "wordmark": "assets/banks/BOCZ_wordmark.svg"
+  },
+  {
+    "id": "BHB",
+    "name": "河北银行",
+    "icon": "assets/banks/BHB.svg",
+    "wordmark": "assets/banks/BHB_wordmark.svg"
+  },
+  {
+    "id": "BOQZ",
+    "name": "泉州银行",
+    "icon": "assets/banks/BOQZ.svg",
+    "wordmark": "assets/banks/BOQZ_wordmark.svg"
+  },
+  {
+    "id": "TACCB",
+    "name": "泰安银行",
+    "icon": "assets/banks/TACCB.svg",
+    "wordmark": "assets/banks/TACCB_wordmark.svg"
+  },
+  {
+    "id": "TLCB",
+    "name": "泰隆银行",
+    "icon": "assets/banks/TLCB.svg",
+    "wordmark": "assets/banks/TLCB_wordmark.svg"
+  },
+  {
+    "id": "LZB",
+    "name": "泸州银行",
+    "icon": "assets/banks/LZB.svg",
+    "wordmark": "assets/banks/LZB_wordmark.svg"
+  },
+  {
+    "id": "BLY",
+    "name": "洛阳银行",
+    "icon": "assets/banks/BLY.svg",
+    "wordmark": "assets/banks/BLY_wordmark.svg"
+  },
+  {
+    "id": "JNBANK",
+    "name": "济宁银行",
+    "icon": "assets/banks/JNBANK.svg",
+    "wordmark": "assets/banks/JNBANK_wordmark.svg"
+  },
+  {
+    "id": "CZBANK",
+    "name": "浙商银行",
+    "icon": "assets/banks/CZBANK.svg",
+    "wordmark": "assets/banks/CZBANK_wordmark.svg"
+  },
+  {
+    "id": "MTBANK",
+    "name": "浙江民泰商业银行",
+    "icon": "assets/banks/MTBANK.svg",
+    "wordmark": "assets/banks/MTBANK_wordmark.svg"
+  },
+  {
+    "id": "CZCB",
+    "name": "浙江稠州商业银行",
+    "icon": "assets/banks/CZCB.svg",
+    "wordmark": "assets/banks/CZCB_wordmark.svg"
+  },
+  {
+    "id": "SPDB",
+    "name": "浦发银行",
+    "icon": "assets/banks/SPDB.svg",
+    "wordmark": "assets/banks/SPDB_wordmark.svg"
+  },
+  {
+    "id": "HNB",
+    "name": "海南银行",
+    "icon": "assets/banks/HNB.svg",
+    "wordmark": "assets/banks/HNB_wordmark.svg"
+  },
+  {
+    "id": "BOHAIB",
+    "name": "渤海银行",
+    "icon": "assets/banks/BOHAIB.svg",
+    "wordmark": "assets/banks/BOHAIB_wordmark.svg"
+  },
+  {
+    "id": "WZBANK",
+    "name": "温州银行",
+    "icon": "assets/banks/WZBANK.svg",
+    "wordmark": "assets/banks/WZBANK_wordmark.svg"
+  },
+  {
+    "id": "HBC",
+    "name": "湖北银行",
+    "icon": "assets/banks/HBC.svg",
+    "wordmark": "assets/banks/HBC_wordmark.svg"
+  },
+  {
+    "id": "BOHZ",
+    "name": "湖州银行",
+    "icon": "assets/banks/BOHZ.svg",
+    "wordmark": "assets/banks/BOHZ_wordmark.svg"
+  },
+  {
+    "id": "WFCCB",
+    "name": "潍坊银行",
+    "icon": "assets/banks/WFCCB.svg",
+    "wordmark": "assets/banks/WFCCB_wordmark.svg"
+  },
+  {
+    "id": "YTB",
+    "name": "烟台银行",
+    "icon": "assets/banks/YTB.svg",
+    "wordmark": "assets/banks/YTB_wordmark.svg"
+  },
+  {
+    "id": "CTS",
+    "name": "焦作中旅银行",
+    "icon": "assets/banks/CTS.svg"
+  },
+  {
+    "id": "RBOZ",
+    "name": "珠海华润银行",
+    "icon": "assets/banks/RBOZ.svg",
+    "wordmark": "assets/banks/RBOZ_wordmark.svg"
+  },
+  {
+    "id": "BOGS",
+    "name": "甘肃银行",
+    "icon": "assets/banks/BOGS.svg",
+    "wordmark": "assets/banks/BOGS_wordmark.svg"
+  },
+  {
+    "id": "BOPJ",
+    "name": "盘锦银行",
+    "icon": "assets/banks/BOPJ.svg",
+    "wordmark": "assets/banks/BOPJ_wordmark.svg"
+  },
+  {
+    "id": "SJBANK",
+    "name": "盛京银行",
+    "icon": "assets/banks/SJBANK.svg",
+    "wordmark": "assets/banks/SJBANK_wordmark.svg"
+  },
+  {
+    "id": "SZSBK",
+    "name": "石嘴山银行",
+    "icon": "assets/banks/SZSBK.svg",
+    "wordmark": "assets/banks/SZSBK_wordmark.svg"
+  },
+  {
+    "id": "FJHXBC",
+    "name": "福建海峡银行",
+    "icon": "assets/banks/FJHXBC.svg",
+    "wordmark": "assets/banks/FJHXBC_wordmark.svg"
+  },
+  {
+    "id": "QHDBANK",
+    "name": "秦皇岛银行",
+    "icon": "assets/banks/QHDBANK.svg",
+    "wordmark": "assets/banks/QHDBANK_wordmark.svg"
+  },
+  {
+    "id": "SXCB",
+    "name": "绍兴银行",
+    "icon": "assets/banks/SXCB.svg",
+    "wordmark": "assets/banks/SXCB_wordmark.svg"
+  },
+  {
+    "id": "MYCCB",
+    "name": "绵阳市商业银行",
+    "icon": "assets/banks/MYCCB.svg",
+    "wordmark": "assets/banks/MYCCB_wordmark.svg"
+  },
+  {
+    "id": "Mybank",
+    "name": "网商银行",
+    "icon": "assets/banks/Mybank.svg",
+    "wordmark": "assets/banks/Mybank_wordmark.svg"
+  },
+  {
+    "id": "ZGBANK",
+    "name": "自贡银行",
+    "icon": "assets/banks/ZGBANK.svg",
+    "wordmark": "assets/banks/ZGBANK_wordmark.svg"
+  },
+  {
+    "id": "BOSZ",
+    "name": "苏州银行",
+    "icon": "assets/banks/BOSZ.svg",
+    "wordmark": "assets/banks/BOSZ_wordmark.svg"
+  },
+  {
+    "id": "LSBANK",
+    "name": "莱商银行",
+    "icon": "assets/banks/LSBANK.svg",
+    "wordmark": "assets/banks/LSBANK_wordmark.svg"
+  },
+  {
+    "id": "YKYHB",
+    "name": "营口沿海银行",
+    "icon": "assets/banks/YKYHB.svg"
+  },
+  {
+    "id": "BOYK",
+    "name": "营口银行",
+    "icon": "assets/banks/BOYK.svg",
+    "wordmark": "assets/banks/BOYK_wordmark.svg"
+  },
+  {
+    "id": "BOHLD",
+    "name": "葫芦岛银行",
+    "icon": "assets/banks/BOHLD.svg",
+    "wordmark": "assets/banks/BOHLD_wordmark.svg"
+  },
+  {
+    "id": "BOHS",
+    "name": "衡水银行",
+    "icon": "assets/banks/BOHS.svg"
+  },
+  {
+    "id": "XABANK",
+    "name": "西安银行",
+    "icon": "assets/banks/XABANK.svg",
+    "wordmark": "assets/banks/XABANK_wordmark.svg"
+  },
+  {
+    "id": "BOXZ",
+    "name": "西藏银行",
+    "icon": "assets/banks/BOXZ.svg",
+    "wordmark": "assets/banks/BOXZ_wordmark.svg"
+  },
+  {
+    "id": "BOGZ",
+    "name": "贵州银行",
+    "icon": "assets/banks/BOGZ.svg",
+    "wordmark": "assets/banks/BOGZ_wordmark.svg"
+  },
+  {
+    "id": "GYCCB",
+    "name": "贵阳银行",
+    "icon": "assets/banks/GYCCB.svg",
+    "wordmark": "assets/banks/GYCCB_wordmark.svg"
+  },
+  {
+    "id": "BOLY",
+    "name": "辽阳银行",
+    "icon": "assets/banks/BOLY.svg",
+    "wordmark": "assets/banks/BOLY_wordmark.svg"
+  },
+  {
+    "id": "DCCB",
+    "name": "达州银行",
+    "icon": "assets/banks/DCCB.svg",
+    "wordmark": "assets/banks/DCCB_wordmark.svg"
+  },
+  {
+    "id": "SNBANK",
+    "name": "遂宁银行",
+    "icon": "assets/banks/SNBANK.svg",
+    "wordmark": "assets/banks/SNBANK_wordmark.svg"
+  },
+  {
+    "id": "XTB",
+    "name": "邢台银行",
+    "icon": "assets/banks/XTB.svg",
+    "wordmark": "assets/banks/XTB_wordmark.svg"
+  },
+  {
+    "id": "HDBANK",
+    "name": "邯郸银行",
+    "icon": "assets/banks/HDBANK.svg",
+    "wordmark": "assets/banks/HDBANK_wordmark.svg"
+  },
+  {
+    "id": "ZZBANK",
+    "name": "郑州银行",
+    "icon": "assets/banks/ZZBANK.svg",
+    "wordmark": "assets/banks/ZZBANK_wordmark.svg"
+  },
+  {
+    "id": "ORDOSB",
+    "name": "鄂尔多斯银行",
+    "icon": "assets/banks/ORDOSB.svg",
+    "wordmark": "assets/banks/ORDOSB_wordmark.svg"
+  },
+  {
+    "id": "CCQTGB",
+    "name": "重庆三峡银行",
+    "icon": "assets/banks/CCQTGB.svg",
+    "wordmark": "assets/banks/CCQTGB_wordmark.svg"
+  },
+  {
+    "id": "CQBANK",
+    "name": "重庆银行",
+    "icon": "assets/banks/CQBANK.svg",
+    "wordmark": "assets/banks/CQBANK_wordmark.svg"
+  },
+  {
+    "id": "JHCCB",
+    "name": "金华银行",
+    "icon": "assets/banks/JHCCB.svg",
+    "wordmark": "assets/banks/JHCCB_wordmark.svg"
+  },
+  {
+    "id": "BOTL",
+    "name": "铁岭银行",
+    "icon": "assets/banks/BOTL.svg",
+    "wordmark": "assets/banks/BOTL_wordmark.svg"
+  },
+  {
+    "id": "JZBANK",
+    "name": "锦州银行",
+    "icon": "assets/banks/JZBANK.svg",
+    "wordmark": "assets/banks/JZBANK_wordmark.svg"
+  },
+  {
+    "id": "GWB",
+    "name": "长城华西银行",
+    "icon": "assets/banks/GWB.svg",
+    "wordmark": "assets/banks/GWB_wordmark.svg"
+  },
+  {
+    "id": "CABANK",
+    "name": "长安银行",
+    "icon": "assets/banks/CABANK.svg",
+    "wordmark": "assets/banks/CABANK_wordmark.svg"
+  },
+  {
+    "id": "BSCB",
+    "name": "长沙银行",
+    "icon": "assets/banks/BSCB.svg",
+    "wordmark": "assets/banks/BSCB_wordmark.svg"
+  },
+  {
+    "id": "CZB",
+    "name": "长治银行",
+    "icon": "assets/banks/CZB.svg",
+    "wordmark": "assets/banks/CZB_wordmark.svg"
+  },
+  {
+    "id": "FXCB",
+    "name": "阜阳银行",
+    "icon": "assets/banks/FXCB.svg",
+    "wordmark": "assets/banks/FXCB_wordmark.svg"
+  },
+  {
+    "id": "YQCCB",
+    "name": "阳泉市商业银行",
+    "icon": "assets/banks/YQCCB.svg",
+    "wordmark": "assets/banks/YQCCB_wordmark.svg"
+  },
+  {
+    "id": "YACCB",
+    "name": "雅安市商业银行",
+    "icon": "assets/banks/YACCB.svg",
+    "wordmark": "assets/banks/YACCB_wordmark.svg"
+  },
+  {
+    "id": "QDCCB",
+    "name": "青岛银行",
+    "icon": "assets/banks/QDCCB.svg",
+    "wordmark": "assets/banks/QDCCB_wordmark.svg"
+  },
+  {
+    "id": "QHBANK",
+    "name": "青海银行",
+    "icon": "assets/banks/QHBANK.svg",
+    "wordmark": "assets/banks/QHBANK_wordmark.svg"
+  },
+  {
+    "id": "BOAS",
+    "name": "鞍山银行",
+    "icon": "assets/banks/BOAS.svg",
+    "wordmark": "assets/banks/BOAS_wordmark.svg"
+  },
+  {
+    "id": "QSB",
+    "name": "齐商银行",
+    "icon": "assets/banks/QSB.svg",
+    "wordmark": "assets/banks/QSB_wordmark.svg"
+  },
+  {
+    "id": "QLBANK",
+    "name": "齐鲁银行",
+    "icon": "assets/banks/QLBANK.svg",
+    "wordmark": "assets/banks/QLBANK_wordmark.svg"
+  },
+  {
+    "id": "LJBANK",
+    "name": "龙江银行",
+    "icon": "assets/banks/LJBANK.svg",
+    "wordmark": "assets/banks/LJBANK_wordmark.svg"
+  }
+]
