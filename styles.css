@@ -133,19 +133,19 @@ h2 { margin: 0; font-size: 16px; }
     radial-gradient(circle, var(--dot) 1px, transparent 1.2px) 0 0 / 16px 16px,
     var(--stage);
 }
-.card {
-  position: relative;
-  width: min(100%, 860px);
-  margin: 0 auto;
-  aspect-ratio: 1536 / 969;
-  background: #fff;
-  overflow: visible;
-  touch-action: none;
-  box-shadow: 0 12px 30px rgba(27, 43, 64, 0.12);
-}
-.card.round { border-radius: 3.7%; }
-canvas, #layers, .empty { position: absolute; inset: 0; width: 100%; height: 100%; }
-#reference { pointer-events: none; }
+ .card {
+   position: relative;
+   width: min(100%, 860px);
+   margin: 0 auto;
+   aspect-ratio: 1536 / 969;
+   background: #fff;
+   overflow: visible;
+   touch-action: none;
+   box-shadow: 0 12px 30px rgba(27, 43, 64, 0.12);
+ }
+ .card.round { border-radius: 3.7%; overflow: hidden; }
+ canvas, #layers, .empty { position: absolute; inset: 0; width: 100%; height: 100%; }
+ #reference { pointer-events: none; }
 .toast {
   position: fixed;
   z-index: 20;
@@ -182,19 +182,21 @@ canvas, #layers, .empty { position: absolute; inset: 0; width: 100%; height: 100
 .empty[hidden] { display: none; }
 .empty p { max-width: 360px; color: #667385; }
 
-.foot { flex-wrap: wrap; }
-.modes { display: flex; padding: 3px; border-radius: 999px; background: var(--soft); }
-.modes button, .pair button, .tab, .layer {
-  border: 1px solid var(--line);
-  background: var(--panel);
-  color: var(--ink);
-  border-radius: 9px;
-  min-height: 40px;
-  padding: 8px 10px;
-}
-.modes button { border: 0; border-radius: 999px; }
-.check { display: flex; align-items: center; gap: 8px; font-size: 14px; }
-.modes button.active, .tab.active { background: var(--navy); color: var(--on-accent); }
+ .foot { flex-wrap: wrap; gap: 10px; }
+ .modes { display: flex; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 14px; background: var(--soft); }
+ .modes button, .pair button, .tab, .layer-name {
+   border: 1px solid var(--line);
+   background: var(--panel);
+   color: var(--ink);
+   border-radius: 9px;
+   min-height: 40px;
+   padding: 8px 10px;
+ }
+ .modes button { display: flex; align-items: center; gap: 7px; border: 0; border-radius: 10px; min-height: 36px; padding: 6px 12px; background: transparent; color: var(--muted); font-size: 13px; }
+ .modes button svg { width: 18px; height: 18px; flex: 0 0 auto; }
+ .check { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+ .modes button.active, .tab.active { background: var(--panel); color: var(--ink); box-shadow: 0 1px 2px rgba(27, 43, 64, 0.08); }
+ .tab.active { background: var(--navy); color: var(--on-accent); box-shadow: none; }
 .quiet { border: 0; background: transparent; color: var(--muted); }
 
 .drop {
@@ -258,8 +260,14 @@ input[type="range"] { width: 100%; }
 .badge img { width: 100%; height: auto; display: block; pointer-events: none; }
 .obj-name { margin: 0 0 8px; font-weight: 650; }
 .layers { display: grid; gap: 6px; }
-.layer { display: flex; justify-content: space-between; width: 100%; text-align: left; }
-.layer.active { border-color: var(--navy); }
+ .layer { display: flex; align-items: center; gap: 6px; width: 100%; padding: 0; overflow: hidden; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 9px; }
+ .layer.active { border-color: var(--navy); }
+ .layer-name { flex: 1; border: 0; background: transparent; color: inherit; text-align: left; min-height: 40px; padding: 8px 10px; }
+ .layer-delete { flex: 0 0 auto; width: 36px; height: 36px; margin-right: 4px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 8px; background: transparent; color: #c44747; }
+ .layer-delete svg { width: 14px; height: 14px; pointer-events: none; }
+ .layer-delete:hover { background: rgba(196, 71, 71, .12); }
+ .layer.dragging { opacity: 0.55; border-style: dashed; }
+ .layer-name { touch-action: none; }
 
 @media (max-width: 900px) {
   .layout { display: block; }

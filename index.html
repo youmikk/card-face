@@ -6,7 +6,7 @@
   <meta http-equiv="Cache-Control" content="no-cache" />
   <title>卡面设计生成器</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=20260924f" />
+   <link rel="stylesheet" href="styles.css?v=20260924n" />
 </head>
 <body>
   <header class="bar">
@@ -30,7 +30,7 @@
     <section class="preview">
       <div class="head"><h2 data-i18n="preview">卡面预览</h2><button type="button" id="export" class="export" data-i18n="export">导出 PNG</button></div>
       <div class="stage">
-        <div class="card" id="card">
+         <div class="card round" id="card">
           <canvas id="base" width="1536" height="969"></canvas>
           <canvas id="reference" width="1536" height="969"></canvas>
           <div id="layers"></div>
@@ -44,14 +44,20 @@
       </div>
       <div class="foot">
         <label class="check"><input id="rounded" type="checkbox" checked /> <span data-i18n="rounded">按 3.18 mm 圆角呈现（导出同步）</span></label>
-        <div class="modes" id="modes">
-          <button type="button" data-mode="card" class="active" data-i18n="dragCard">拖动卡面</button>
-          <button type="button" data-mode="reference" data-i18n="dragRef">拖动参考图</button>
-        </div>
+         <div class="modes" id="modes" role="group">
+           <button type="button" data-mode="card" class="active" aria-label="拖动卡面" data-i18n-label="dragCard">
+             <svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 12h8M12 9v6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+             <span data-i18n="dragCard">拖动卡面</span>
+           </button>
+           <button type="button" data-mode="reference" aria-label="拖动参考图" data-i18n-label="dragRef">
+             <svg viewBox="0 0 24 24"><rect x="6" y="4" width="14" height="10" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.8" opacity=".45"/><rect x="3" y="9" width="14" height="10" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+             <span data-i18n="dragRef">拖动参考图</span>
+           </button>
+         </div>
         <button type="button" id="clear" class="quiet" data-i18n="clear">清空</button>
       </div>
       <section class="logo-panel">
-        <div class="head"><h2>Logo</h2><a class="request" id="request-logo" data-i18n="requestLogo" href="https://github.com/youmikk/card-face/issues/new" target="_blank" rel="noreferrer">申请添加 logo</a></div>
+         <div class="head"><h2>Logo <span id="logo-count">0</span></h2><a class="request" id="request-logo" data-i18n="requestLogo" href="https://github.com/youmikk/card-face/issues/new" target="_blank" rel="noreferrer">申请添加 logo</a></div>
         <label class="drop compact" id="logo-drop">
           <strong data-i18n="uploadLogo">上传自己的 logo</strong>
           <small id="logo-hint" data-i18n="logoNeed">请先上传卡面图片</small>
@@ -138,5 +144,5 @@
       </figure>
     </div>
   </div>
-  <script src="app.js?v=20260924f"></script>
+   <script src="app.js?v=20260924m"></script>
 </html>

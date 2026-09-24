@@ -240,20 +240,97 @@ function renderLogos() {
   document.querySelector("#layer-count").textContent = items.length;
 }
 
-function renderLayers() {
-  const box = document.querySelector("#layer-list");
-  if (!items.length) {
-    box.innerHTML = `<p class="muted">${copy().none}</p>`;
-    return;
-  }
-  box.replaceChildren();
-  [...items].reverse().forEach((item) => {
-    const button = document.createElement("button");
-    button.className = "layer" + (item.id === selected ? " active" : "");
-    button.textContent = item.name + (item.locked ? ` · ${copy().locked}` : "");
-    button.addEventListener("click", () => { selected = item.id; renderLogos(); });
-  });
-}
+ function renderLayers() {
+   const box = document.querySelector("#layer-list");
+   if (!items.length) {
+     box.innerHTML = `<p class="muted">${copy().none}</p>`;
+     return;
+   }
+   box.replaceChildren();
+   [...items].reverse().forEach((item) => {
+     const row = document.createElement("div");
+     row.className = "layer" + (item.id === selected ? " active" : "");
+     row.dataset.id = item.id;
+     const button = document.createElement("button");
+     button.type = "button";
+     button.className = "layer-name";
+     button.textContent = item.name + (item.locked ? ` · ${copy().locked}` : "");
+     button.addEventListener("click", () => { if (layerDrag) return; selected = item.id; renderLogos(); });
+     button.addEventListener("pointerdown", (event) => startLayerPress(event, item, row));
+     const remove = document.createElement("button");
+     remove.type = "button";
+     remove.className = "layer-delete";
+     remove.setAttribute("aria-label", uiText[language].delete);
+     remove.innerHTML = `<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+     remove.addEventListener("click", () => {
+       items = items.filter((entry) => entry.id !== item.id);
+       if (selected === item.id) selected = items.at(-1)?.id ?? null;
+       renderLogos();
+     });
+     row.append(button, remove);
+     box.appendChild(row);
+   });
+ }
+ 
+ let layerDrag = null;
+ 
+ function startLayerPress(event, item, row) {
+   if (event.button !== undefined && event.button !== 0) return;
+   const pointerId = event.pointerId;
+   const originY = event.clientY;
+   let armed = false;
+   const watch = (move) => {
+     if (move.pointerId !== pointerId || armed) return;
+     if (Math.abs(move.clientY - originY) > 4) {
+       armed = true;
+       window.removeEventListener("pointermove", watch);
+       window.removeEventListener("pointerup", cancel);
+       beginLayerDrag(pointerId, originY, item, row);
+     }
+   };
+   const cancel = () => {
+     window.removeEventListener("pointermove", watch);
+     window.removeEventListener("pointerup", cancel);
+     window.removeEventListener("pointercancel", cancel);
+   };
+   window.addEventListener("pointermove", watch);
+   window.addEventListener("pointerup", cancel);
+   window.addEventListener("pointercancel", cancel);
+ }
+ 
+ function beginLayerDrag(pointerId, originY, item, row) {
+   const box = document.querySelector("#layer-list");
+   row.classList.add("dragging");
+   if (navigator.vibrate) navigator.vibrate(12);
+   layerDrag = { pointerId, id: item.id, box };
+   const move = (event) => {
+     if (event.pointerId !== pointerId) return;
+     event.preventDefault();
+     const rows = [...box.querySelectorAll(".layer")];
+     const index = rows.indexOf(row);
+     const hit = rows.findIndex((entry) => {
+       const rect = entry.getBoundingClientRect();
+       return event.clientY >= rect.top && event.clientY <= rect.bottom;
+     });
+     if (hit < 0 || hit === index) return;
+     const target = rows[hit];
+     if (hit < index) box.insertBefore(row, target);
+     else box.insertBefore(row, target.nextSibling);
+   };
+   const end = (event) => {
+     if (event.pointerId !== pointerId) return;
+     window.removeEventListener("pointermove", move);
+     window.removeEventListener("pointerup", end);
+     window.removeEventListener("pointercancel", end);
+     const order = [...box.children].map((entry) => Number(entry.dataset.id)).reverse();
+     items = order.map((id) => items.find((entry) => entry.id === id)).filter(Boolean);
+     layerDrag = null;
+     renderLogos();
+   };
+   window.addEventListener("pointermove", move, { passive: false });
+   window.addEventListener("pointerup", end);
+   window.addEventListener("pointercancel", end);
+ }
 
 function current() { return items.find((item) => item.id === selected) || null; }
 
@@ -291,13 +368,17 @@ function makeDelete(item) {
   return handle;
 }
 
-function makeHandle(mode, item) {
-  const handle = document.createElement("button");
-  handle.type = "button";
-  handle.className = "handle " + mode;
-  handle.addEventListener("pointerdown", (event) => startTransform(event, item, mode));
-  return handle;
-}
+ function makeHandle(mode, item) {
+   const handle = document.createElement("button");
+   handle.type = "button";
+   handle.className = "handle " + mode;
+   handle.setAttribute("aria-label", uiText[language][mode === "rotate" ? "rotate" : "size"]);
+   handle.innerHTML = mode === "rotate"
+     ? `<svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+     : `<svg viewBox="0 0 24 24"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+   handle.addEventListener("pointerdown", (event) => startTransform(event, item, mode));
+   return handle;
+ }
 
 function startTransform(event, item, mode) {
   event.stopPropagation();
@@ -460,14 +541,13 @@ document.querySelector("#remove").addEventListener("click", () => {
 document.querySelector("#layer-up").addEventListener("click", () => moveLayer(1));
 document.querySelector("#layer-down").addEventListener("click", () => moveLayer(-1));
 
-function moveLayer(direction) {
-  const index = items.findIndex((item) => item.id === selected);
-  const next = index + direction;
-  if (index < 0 || next < 0 || next >= items.length) return;
-  const [item] = items.splice(index, 1);
-  items.splice(next, 0, item);
-  renderLogos();
-}
+ function moveLayer(direction) {
+   const item = current();
+   if (!item || item.locked) return;
+   const step = (12 / card.getBoundingClientRect().height) * 100;
+   item.y = Math.min(100, Math.max(0, item.y - direction * step));
+   renderLogos();
+ }
 
 function readFile(file) {
   return new Promise((resolve) => {
