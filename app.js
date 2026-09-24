@@ -14,7 +14,7 @@ const dictionaries = {
     styles: { flat: "直角", "flat-rounded": "圆角", logo: "标志", "logo-border": "描边", mono: "单色", "mono-outline": "线框" },
     brands: { visa: "Visa", mastercard: "万事达", amex: "美国运通", unionpay: "银联", jcb: "JCB", discover: "Discover", diners: "大来", alipay: "支付宝", paypal: "PayPal", maestro: "Maestro", elo: "Elo", mir: "Mir", generic: "通用卡" },
     payments: { applePay: "Apple Pay", googlePay: "Google Pay", weChatPay: "微信支付", visa: "Visa", mastercard: "万事达", amex: "美国运通", unionPay: "银联", alipay: "支付宝", payPal: "PayPal", jcb: "JCB", discover: "Discover", klarna: "Klarna" },
-    groups: { official: "卡组织素材", payment: "支付方式", banks: "银行标识", bankMarks: "组合标识" },
+    groups: { official: "卡组织素材", payment: "支付方式", banks: "银行", transit: "交通联合", bankMark: "标志", bankLockup: "组合" },
     locked: "已锁定",
     logoReady: "可多选，支持 SVG、PNG、JPG、WebP",
     logoNeed: "请先上传卡面图片",
@@ -24,7 +24,7 @@ const dictionaries = {
     styles: { flat: "Flat", "flat-rounded": "Rounded", logo: "Logo", "logo-border": "Border", mono: "Mono", "mono-outline": "Outline" },
     brands: { visa: "Visa", mastercard: "Mastercard", amex: "American Express", unionpay: "UnionPay", jcb: "JCB", discover: "Discover", diners: "Diners", alipay: "Alipay", paypal: "PayPal", maestro: "Maestro", elo: "Elo", mir: "Mir", generic: "Generic" },
     payments: { applePay: "Apple Pay", googlePay: "Google Pay", weChatPay: "WeChat Pay", visa: "Visa", mastercard: "Mastercard", amex: "Amex", unionPay: "UnionPay", alipay: "Alipay", payPal: "PayPal", jcb: "JCB", discover: "Discover", klarna: "Klarna" },
-    groups: { official: "Brand assets", payment: "Payments", banks: "Banks", bankMarks: "Bank lockups" },
+    groups: { official: "Brand assets", payment: "Payments", banks: "Banks", transit: "T-Union", bankMark: "Mark", bankLockup: "Lockup" },
     locked: "Locked",
     logoReady: "Multiple files: SVG, PNG, JPG, WebP",
     logoNeed: "Upload a card image first",
@@ -32,8 +32,8 @@ const dictionaries = {
   },
 };
 const uiText = {
-  zh: { title: "卡面设计生成器", theme: "深色", themeLight: "浅色", github: "GitHub 项目", support: "赞赏", afdian: "爱发电", wechatSupport: "微信赞赏码", close: "关闭", preview: "卡面预览", export: "导出 PNG", emptyTitle: "上传一张图片作为卡面", emptyText: "图片会按 1.586 : 1 铺满并居中，之后可以缩放和拖动调整构图。", choose: "选择图片", rounded: "按 3.18 mm 圆角呈现（导出同步）", dragCard: "拖动卡面", dragRef: "拖动参考图", clear: "清空", uploadLogo: "上传自己的 logo", requestLogo: "提交 logo", cardImage: "卡面图片", dropCard: "拖拽图片到此处，或点击选择", refit: "重新匹配", zoom: "缩放", cardNote: "图片会等比缩放并居中填满卡面，超出部分自动裁掉。", reference: "参考图", dropRef: "拖拽参考图到此处，或点击选择", refHint: "只用于对位，不会出现在导出的 PNG 里", showRef: "显示参考图", opacity: "透明度", adjust: "调整", selectLogo: "点击卡面上的 logo 进行编辑", size: "大小", rotate: "旋转", lock: "锁定", up: "上移", down: "下移", delete: "删除", layers: "图层", noLogo: "暂无 logo", legal: "输出只是视觉设计文件，不代表任何机构发行的卡片。图标来自公开素材库，使用前请确认你有相应授权。" },
-  en: { title: "Card Design Generator", theme: "Dark", themeLight: "Light", github: "GitHub project", support: "Support", afdian: "Afdian", wechatSupport: "WeChat", close: "Close", preview: "Card preview", export: "Export PNG", emptyTitle: "Upload an image for the card", emptyText: "The image fills the 1.586:1 card and can then be zoomed and dragged.", choose: "Choose image", rounded: "Show 3.18 mm rounded corners (also exported)", dragCard: "Move card", dragRef: "Move reference", clear: "Clear", uploadLogo: "Upload your own logos", requestLogo: "Submit a logo", cardImage: "Card image", dropCard: "Drop an image here, or click to choose", refit: "Refit", zoom: "Zoom", cardNote: "The image is scaled and centered to fill the card. Overflow is cropped.", reference: "Reference", dropRef: "Drop a reference here, or click to choose", refHint: "Used for alignment only. It is not included in the PNG.", showRef: "Show reference", opacity: "Opacity", adjust: "Adjust", selectLogo: "Click a logo on the card to edit it", size: "Size", rotate: "Rotate", lock: "Lock", up: "Up", down: "Down", delete: "Delete", layers: "Layers", noLogo: "No logos yet", legal: "The output is a visual design file only. Logos come from public asset libraries; confirm permission before publishing." },
+  zh: { title: "卡面设计生成器", theme: "深色", themeLight: "浅色", github: "GitHub 项目", support: "赞赏", afdian: "爱发电", wechatSupport: "微信赞赏码", close: "关闭", preview: "卡面预览", export: "导出 PNG", emptyTitle: "上传一张图片作为卡面", emptyText: "图片会按 1.586 : 1 铺满并居中，之后可以缩放和拖动调整构图。", choose: "选择图片", rounded: "按 3.18 mm 圆角呈现（导出同步）", dragCard: "拖动卡面", dragRef: "拖动参考图", clear: "清空", uploadLogo: "上传自己的 logo", requestLogo: "提交 logo", banks: "银行", cardImage: "卡面图片", dropCard: "拖拽图片到此处，或点击选择", refit: "重新匹配", zoom: "缩放", cardNote: "图片会等比缩放并居中填满卡面，超出部分自动裁掉。", reference: "参考图", dropRef: "拖拽参考图到此处，或点击选择", refHint: "只用于对位，不会出现在导出的 PNG 里", showRef: "显示参考图", opacity: "透明度", adjust: "调整", selectLogo: "点击卡面上的 logo 进行编辑", size: "大小", rotate: "旋转", lock: "锁定", up: "上移", down: "下移", delete: "删除", layers: "图层", noLogo: "暂无 logo", legal: "输出只是视觉设计文件，不代表任何机构发行的卡片。图标来自公开素材库，使用前请确认你有相应授权。" },
+  en: { title: "Card Design Generator", theme: "Dark", themeLight: "Light", github: "GitHub project", support: "Support", afdian: "Afdian", wechatSupport: "WeChat", close: "Close", preview: "Card preview", export: "Export PNG", emptyTitle: "Upload an image for the card", emptyText: "The image fills the 1.586:1 card and can then be zoomed and dragged.", choose: "Choose image", rounded: "Show 3.18 mm rounded corners (also exported)", dragCard: "Move card", dragRef: "Move reference", clear: "Clear", uploadLogo: "Upload your own logos", requestLogo: "Submit a logo", banks: "Banks", cardImage: "Card image", dropCard: "Drop an image here, or click to choose", refit: "Refit", zoom: "Zoom", cardNote: "The image is scaled and centered to fill the card. Overflow is cropped.", reference: "Reference", dropRef: "Drop a reference here, or click to choose", refHint: "Used for alignment only. It is not included in the PNG.", showRef: "Show reference", opacity: "Opacity", adjust: "Adjust", selectLogo: "Click a logo on the card to edit it", size: "Size", rotate: "Rotate", lock: "Lock", up: "Up", down: "Down", delete: "Delete", layers: "Layers", noLogo: "No logos yet", legal: "The output is a visual design file only. Logos come from public asset libraries; confirm permission before publishing." },
 };
 let language = localStorage.getItem("card-lang") || "zh";
 const copy = () => dictionaries[language];
@@ -43,6 +43,10 @@ const bankIndex = [{"id":"BOSC","name":"上海银行","icon":"assets/banks/BOSC.
 function buildGroups() {
   const text = copy();
   return [
+    { id: "banks", name: text.groups.banks, marks: [] },
+    { id: "transit", name: text.groups.transit, marks: [
+      { id: "t-union", name: text.groups.transit, src: "assets/transit/t-union.png", width: 220 },
+    ] },
     ...Object.entries(text.brands).filter(([id]) => id !== "generic").map(([id, name]) => ({
       id, name,
       marks: Object.entries(text.styles).map(([style, label]) => ({ id: `${id}-${style}`, name: label, src: `assets/icons/${style}/${id}.svg`, width: style.startsWith("logo") ? 92 : 132 })),
@@ -56,9 +60,8 @@ function buildGroups() {
       { id: "official-up-white", name: text.brands.unionpay, src: "assets/unionpay-horizontal-white.png", width: 124 },
     ] },
     { id: "payment", name: text.groups.payment, marks: Object.entries(text.payments).map(([id, name]) => ({ id: `pay-${id}`, name, src: `assets/icons/payment/${id}.svg`, width: 132 })) },
-    { id: "banks", name: text.groups.banks, marks: bankIndex.map((bank) => ({ id: `bank-${bank.id}`, name: bank.name, src: bank.icon, width: 92 })) },
-    { id: "bank-marks", name: text.groups.bankMarks, marks: bankIndex.filter((bank) => bank.wordmark).map((bank) => ({ id: `bank-mark-${bank.id}`, name: bank.name, src: bank.wordmark, width: 180 })) },
   ];
+
 }
 let groups = buildGroups();
 let marks = Object.fromEntries(groups.flatMap((group) => group.marks.map((mark) => [mark.id, mark])));
@@ -125,18 +128,46 @@ function renderTabs() {
   });
 }
 
+function bankMarks(bank) {
+  const text = copy();
+  return [
+    { id: `bank-${bank.id}-mark`, name: text.groups.bankMark, src: bank.icon, width: 92 },
+    ...(bank.wordmark ? [{ id: `bank-${bank.id}-lockup`, name: text.groups.bankLockup, src: bank.wordmark, width: 180 }] : []),
+  ];
+}
+
 function renderLibrary() {
   const box = document.querySelector("#library");
-  const group = groups.find((entry) => entry.id === activeGroup);
+  const picker = document.querySelector(".bank-picker");
+  const select = document.querySelector("#bank-picker");
+  const banking = activeGroup === "banks";
+  picker.hidden = !banking;
   box.replaceChildren();
-  group.marks.forEach((mark) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "lib-btn";
-    button.innerHTML = `<img src="${mark.src}" alt="" /><span>${mark.name}</span>`;
-    button.addEventListener("click", () => addLogo({ name: `${group.name} · ${mark.name}`, src: mark.src, width: mark.width }));
-    box.appendChild(button);
-  });
+  if (banking) {
+    if (select.childElementCount !== bankIndex.length) {
+      select.replaceChildren();
+      bankIndex.forEach((bank) => {
+        const option = document.createElement("option");
+        option.value = bank.id;
+        option.textContent = bank.name;
+        select.appendChild(option);
+      });
+    }
+    const bank = bankIndex.find((entry) => entry.id === select.value) || bankIndex[0];
+    bankMarks(bank).forEach((mark) => box.appendChild(logoButton(mark, `${bank.name} · ${mark.name}`)));
+    return;
+  }
+  const group = groups.find((entry) => entry.id === activeGroup);
+  group.marks.forEach((mark) => box.appendChild(logoButton(mark, `${group.name} · ${mark.name}`)));
+}
+
+function logoButton(mark, name) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "lib-btn";
+  button.innerHTML = `<img src="${mark.src}" alt="" /><span>${mark.name}</span>`;
+  button.addEventListener("click", () => addLogo({ name, src: mark.src, width: mark.width }));
+  return button;
 }
 
 function addLogo({ name, src, width }) {
@@ -374,6 +405,7 @@ document.querySelector("#ref-file").addEventListener("change", async (event) => 
   refVisible = true;
   paint();
 });
+document.querySelector("#bank-picker").addEventListener("change", renderLibrary);
 document.querySelector("#logo-file").addEventListener("change", (event) => {
   [...event.target.files].forEach((file) => addLogo({ name: file.name.replace(/\.[^.]+$/, ""), src: URL.createObjectURL(file), width: 150 }));
 });
