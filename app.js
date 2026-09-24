@@ -488,7 +488,6 @@ document.querySelector("#theme-toggle").addEventListener("click", () => {
   localStorage.setItem("card-theme", dark ? "dark" : "light");
 });
 document.querySelector("#support").addEventListener("click", () => {
-  document.querySelector("#wechat-code").hidden = true;
   document.querySelector("#support-sheet").hidden = false;
 });
 document.querySelector("#support-close").addEventListener("click", () => {
@@ -496,9 +495,6 @@ document.querySelector("#support-close").addEventListener("click", () => {
 });
 document.querySelector("#support-sheet").addEventListener("click", (event) => {
   if (event.target.id === "support-sheet") document.querySelector("#support-sheet").hidden = true;
-});
-document.querySelector("#show-wechat").addEventListener("click", () => {
-  document.querySelector("#wechat-code").hidden = false;
 });
 if (localStorage.getItem("card-theme") === "dark") document.body.classList.add("dark");
 applyLanguage();
