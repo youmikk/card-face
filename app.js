@@ -404,6 +404,15 @@ document.querySelector("#modes").addEventListener("click", (event) => {
 });
 
 document.querySelector("#rounded").addEventListener("change", (event) => { rounded = event.target.checked; paint(); });
+card.addEventListener("wheel", (event) => {
+  const image = dragMode === "reference" ? refImage : cardImage;
+  if (!image || event.target.closest(".badge")) return;
+  event.preventDefault();
+  const view = dragMode === "reference" ? refView : cardView;
+  view.scale = clamp(view.scale * (event.deltaY < 0 ? 1.08 : 0.92), 1, 3);
+  if (dragMode === "card") document.querySelector("#card-scale").value = Math.round(view.scale * 100);
+  paint();
+}, { passive: false });
 document.querySelector("#card-scale").addEventListener("input", (event) => { cardView.scale = Number(event.target.value) / 100; paint(); });
 document.querySelector("#fit-card").addEventListener("click", () => { cardView = { scale: 1, x: 0.5, y: 0.5 }; document.querySelector("#card-scale").value = 100; paint(); });
 document.querySelector("#fit-ref").addEventListener("click", () => { refView = { scale: 1, x: 0.5, y: 0.5 }; paint(); });
