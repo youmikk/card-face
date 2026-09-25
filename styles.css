@@ -102,6 +102,10 @@ body.dark .icon-btn .moon { display: block; }
    padding: 10px 16px;
  }
 
+/* 主次分层：一副主动作（保存 / 空态的「选择图片」/ 弹窗里的发送）保持实心，
+   其余动作改描边，避免首屏里多枚同权重实心按钮抢注意力 */
+#export { background: var(--panel); color: var(--ink); border: 1px solid var(--line); }
+
 .layout {
   width: min(1280px, calc(100% - 28px));
   margin: 22px auto 40px;
@@ -122,13 +126,13 @@ aside section, .legal { padding: 16px; }
  .icon-action svg { width: 18px; height: 18px; display: block; }
  .head-actions { display: flex; gap: 8px; }
 .head span, .muted, .note, .legal, .drop small { color: var(--muted); }
-h2 { margin: 0; font-size: 16px; }
-.note, .legal, .muted { font-size: 13px; line-height: 1.55; }
-.legal { margin: 0; }
+h2 { margin: 0; font-size: 15px; }
+.note, .legal, .muted { font-size: 12px; line-height: 1.55; }
+.legal { margin: 0; padding: 12px 14px; }
 
 .stage {
   margin: 14px 0;
-  padding: 22px 12px;
+  padding: 16px 12px;
   border-radius: 14px;
   background:
     radial-gradient(circle, var(--dot) 1px, transparent 1.2px) 0 0 / 16px 16px,
@@ -244,7 +248,7 @@ input[type="range"] { width: 100%; }
 .bank-picker { display: grid; gap: 6px; margin: 0 0 10px; color: var(--muted); font-size: 13px; }
 .bank-picker[hidden] { display: none; }
 .bank-picker select { min-height: 42px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); padding: 0 12px; }
-  .request { border: 0; border-radius: 999px; background: var(--navy); color: var(--on-accent); padding: 8px 14px; font-size: 13px; white-space: nowrap; cursor: pointer; }
+  .request { border: 1px solid var(--line); border-radius: 999px; background: var(--panel); color: var(--ink); padding: 6px 12px; font-size: 12px; white-space: nowrap; cursor: pointer; }
  .submit-form { display: grid; gap: 10px; margin-top: 12px; }
  .submit-form label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
  .submit-form input, .submit-form select { min-height: 42px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); padding: 0 12px; }
@@ -258,7 +262,7 @@ input[type="range"] { width: 100%; }
  .faces { margin-top: 12px; }
  .face { display: grid; gap: 4px; justify-items: center; min-height: 72px; padding: 6px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); position: relative; }
  .face canvas, .face img { position: static; inset: auto; width: 100%; height: auto; aspect-ratio: 1536 / 969; border-radius: 0; object-fit: cover; }
- .face span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--muted); }
+ .face span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--muted); }
  .face.active { border-color: var(--teal); box-shadow: 0 0 0 2px color-mix(in srgb, var(--teal) 35%, transparent); }
  .face-delete { position: absolute; top: 2px; right: 2px; z-index: 2; width: 22px; height: 22px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 50%; background: rgba(27, 43, 64, .72); color: #fff; }
  .save-item { position: relative; display: grid; }
@@ -309,10 +313,34 @@ input[type="range"] { width: 100%; }
 
  @media (max-width: 900px) {
    .bar { padding: 12px; }
-   .layout { display: block; width: min(100% - 20px, 1280px); margin: 12px auto 28px; }
-   .preview { margin-bottom: 14px; }
+   /* 手机端把「预览卡片」和「侧栏」拍平成同一列，再用 order 重排成：
+      卡面 → 工具条 → 调整 → 图层 → 素材 → 保存区 → 参考图 → 法务。
+      这样选中 logo 后滑块就贴在卡面下方，不用滚两屏；桌面端布局完全不受影响。 */
+   .preview, aside { display: contents; }
+   .layout {
+     display: grid;
+     grid-template-columns: minmax(0, 1fr);
+     grid-auto-flow: row;
+     gap: 12px;
+     width: min(100% - 20px, 1280px);
+     margin: 12px auto 28px;
+   }
+   .preview > .head, .preview > .foot {
+     padding: 12px 14px;
+     border: 1px solid var(--line);
+     border-radius: 14px;
+     background: var(--panel);
+   }
+   .preview > .head { order: 1; }
+   .preview > .stage { order: 2; margin: 0; border: 1px solid var(--line); }
+   .preview > .foot { order: 3; }
+   #panel-adjust { order: 4; }
+   #panel-layers { order: 5; }
+   .pickers { order: 6; grid-template-columns: 1fr; gap: 12px; margin-top: 0; }
+   .saves { order: 7; }
+   #panel-ref { order: 8; }
+   .legal { order: 9; }
    .head, .pair { align-items: stretch; flex-wrap: wrap; }
-   .pickers { grid-template-columns: 1fr; gap: 12px; margin-top: 12px; }
    .pickers .face-strip .faces, .pickers .logo-panel .library { max-height: none; }
    .library:not(.faces) { grid-template-columns: repeat(3, minmax(0, 1fr)); max-height: none; }
    .tabs {
@@ -325,7 +353,7 @@ input[type="range"] { width: 100%; }
      mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent);
    }
    .tabs .tab { flex: 0 0 auto; }
-   /* 底部工具条改两行：勾选 + 模式开关一行，三个动作按钮单独一行，避免列宽挤压重叠 */
+   /* 底部工具条改两行：勾选 + 模式开关一行，三个动作按钮一行，避免列宽挤压重叠 */
    .foot {
      display: grid;
      grid-template-columns: auto minmax(0, 1fr);
