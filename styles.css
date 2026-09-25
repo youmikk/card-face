@@ -249,7 +249,10 @@ input[type="range"] { width: 100%; }
 .bank-picker { display: grid; gap: 6px; margin: 0 0 10px; color: var(--muted); font-size: 13px; }
 .bank-picker[hidden] { display: none; }
 .bank-picker select { min-height: 42px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); padding: 0 12px; }
-  .request { border: 1px solid var(--line); border-radius: 999px; background: var(--panel); color: var(--ink); padding: 6px 12px; font-size: 12px; white-space: nowrap; cursor: pointer; }
+ /* 标题行的次级操作统一一套规格：字号/内边距/高度一致，层级改用颜色区分，
+    避免同一行里 16px 与 12px 混排、或高度被 align-items: stretch 撑歪 */
+ .pick, .request { border: 1px solid var(--line); border-radius: 999px; min-height: 32px; padding: 5px 12px; font-size: 13px; background: var(--panel); color: var(--ink); white-space: nowrap; cursor: pointer; }
+ .request { background: transparent; border-color: transparent; color: var(--muted); }
  .submit-form { display: grid; gap: 10px; margin-top: 12px; }
  .submit-form label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
  .submit-form input, .submit-form select { min-height: 42px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); padding: 0 12px; }
@@ -269,7 +272,6 @@ input[type="range"] { width: 100%; }
  .save-item { position: relative; display: grid; }
  .save-item .face { width: 100%; }
  .face-delete svg { width: 12px; height: 12px; pointer-events: none; }
-  .pick { border: 1px solid var(--line); border-radius: 999px; min-height: 36px; padding: 6px 14px; background: var(--panel); color: var(--ink); }
  .stage.hot { outline: 2px solid var(--teal); outline-offset: -8px; }
  .saves .faces { margin-top: 8px; }
  .saves .empty-note { margin: 8px 0 0; }
@@ -341,7 +343,8 @@ input[type="range"] { width: 100%; }
    .saves { order: 7; }
    #panel-ref { order: 8; }
    .legal { order: 9; }
-   .head, .pair { align-items: stretch; flex-wrap: wrap; }
+   .head { align-items: center; flex-wrap: wrap; }
+   .pair { align-items: stretch; flex-wrap: wrap; }
    .pickers .face-strip .faces, .pickers .logo-panel .library { max-height: none; }
    .library:not(.faces) { grid-template-columns: repeat(3, minmax(0, 1fr)); max-height: none; }
    .tabs {
