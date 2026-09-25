@@ -50,8 +50,8 @@ const dictionaries = {
   },
 };
 const uiText = {
-   zh: { title: "卡面设计生成器", theme: "深色", themeLight: "浅色", github: "GitHub 项目", support: "赞赏", afdian: "爱发电", wechatSupport: "微信赞赏码", close: "关闭", termsTitle: "使用条款", termsAccept: "我已阅读并同意", preview: "卡面预览", save: "保存", export: "导出 PNG", exportAll: "全部导出", savedCards: "保存区", emptyTitle: "上传一张图片作为卡面", emptyText: "图片会按 1.586 : 1 铺满并居中，之后可以缩放和拖动调整构图。", choose: "选择图片", rounded: "按 3.18 mm 圆角呈现（导出同步）", dragCard: "拖动卡面", dragRef: "拖动参考图", clear: "清空", uploadLogo: "上传自己的 logo", requestLogo: "提交 logo", banks: "银行", cardImage: "卡面图片", dropCard: "拖拽图片到此处，或点击选择", refit: "重新匹配", zoom: "缩放", cardNote: "图片会等比缩放并居中填满卡面，超出部分自动裁掉。", saveNote: "点保存记下当前卡面。点缩略图可以再打开修改。只存在这台浏览器里。", reference: "参考图", dropRef: "拖拽参考图到此处，或点击选择", refHint: "只用于对位，不会出现在导出的 PNG 里", showRef: "显示参考图", opacity: "透明度", adjust: "调整", selectLogo: "点击卡面上的 logo 进行编辑", size: "大小", rotate: "旋转", lock: "锁定", up: "上移", down: "下移", delete: "删除", layers: "图层", noLogo: "暂无 logo", legal: "输出只是视觉设计文件，不代表任何机构发行的卡片。图标来自公开素材库，使用前请确认你有相应授权。" },
-   en: { title: "Card Design Generator", theme: "Dark", themeLight: "Light", github: "GitHub project", support: "Support", afdian: "Afdian", wechatSupport: "WeChat", close: "Close", termsTitle: "Terms of use", termsAccept: "I have read and agree", preview: "Card preview", save: "Save", export: "Export PNG", exportAll: "Export all", savedCards: "Saved", emptyTitle: "Upload an image for the card", emptyText: "The image fills the 1.586:1 card and can then be zoomed and dragged.", choose: "Choose image", rounded: "Show 3.18 mm rounded corners (also exported)", dragCard: "Move card", dragRef: "Move reference", clear: "Clear", uploadLogo: "Upload your own logos", requestLogo: "Submit a logo", banks: "Banks", cardImage: "Card image", dropCard: "Drop an image here, or click to choose", refit: "Refit", zoom: "Zoom", cardNote: "The image is scaled and centered to fill the card. Overflow is cropped.", saveNote: "Save stores the current card. Open a thumbnail to edit it again. It stays in this browser only.", reference: "Reference", dropRef: "Drop a reference here, or click to choose", refHint: "Used for alignment only. It is not included in the PNG.", showRef: "Show reference", opacity: "Opacity", adjust: "Adjust", selectLogo: "Click a logo on the card to edit it", size: "Size", rotate: "Rotate", lock: "Lock", up: "Up", down: "Down", delete: "Delete", layers: "Layers", noLogo: "No logos yet", legal: "The output is a visual design file only. Logos come from public asset libraries; confirm permission before publishing." },
+  zh: { title: "卡面设计生成器", theme: "深色", themeLight: "浅色", github: "GitHub 项目", support: "赞赏", afdian: "爱发电", wechatSupport: "微信赞赏码", close: "关闭", termsTitle: "使用条款", termsAccept: "我已阅读并同意", preview: "卡面预览", save: "保存", export: "导出 PNG", exportAll: "全部导出", savedCards: "保存区", emptyTitle: "上传一张图片作为卡面", emptyText: "图片会按 1.586 : 1 铺满并居中，之后可以缩放和拖动调整构图。", choose: "选择图片", requestFace: "提交图片", rounded: "按 3.18 mm 圆角呈现（导出同步）", dragCard: "拖动卡面", dragRef: "拖动参考图", resetZoom: "复原", clear: "清空", uploadLogo: "上传自己的 logo", requestLogo: "提交 logo", banks: "银行", cardImage: "卡面图片", dropCard: "拖拽图片到此处，或点击选择", refit: "重新匹配", zoom: "缩放", cardNote: "图片会等比缩放并居中填满卡面，超出部分自动裁掉。", saveNote: "点保存记下当前卡面。点缩略图可以再打开修改。只存在这台浏览器里。", reference: "参考图", dropRef: "拖拽参考图到此处，或点击选择", refHint: "只用于对位，不会出现在导出的 PNG 里", showRef: "显示参考图", opacity: "透明度", adjust: "调整", selectLogo: "点击卡面上的 logo 进行编辑", size: "大小", rotate: "旋转", lock: "锁定", up: "上移", down: "下移", delete: "删除", layers: "图层", noLogo: "暂无 logo", legal: "输出只是视觉设计文件，不代表任何机构发行的卡片。图标来自公开素材库，使用前请确认你有相应授权。" },
+  en: { title: "Card Design Generator", theme: "Dark", themeLight: "Light", github: "GitHub project", support: "Support", afdian: "Afdian", wechatSupport: "WeChat", close: "Close", termsTitle: "Terms of use", termsAccept: "I have read and agree", preview: "Card preview", save: "Save", export: "Export PNG", exportAll: "Export all", savedCards: "Saved", emptyTitle: "Upload an image for the card", emptyText: "The image fills the 1.586:1 card and can then be zoomed and dragged.", choose: "Choose image", requestFace: "Submit an image", rounded: "Show 3.18 mm rounded corners (also exported)", dragCard: "Move card", dragRef: "Move reference", resetZoom: "Reset zoom", clear: "Clear", uploadLogo: "Upload your own logos", requestLogo: "Submit a logo", banks: "Banks", cardImage: "Card image", dropCard: "Drop an image here, or click to choose", refit: "Refit", zoom: "Zoom", cardNote: "The image is scaled and centered to fill the card. Overflow is cropped.", saveNote: "Save stores the current card. Open a thumbnail to edit it again. It stays in this browser only.", reference: "Reference", dropRef: "Drop a reference here, or click to choose", refHint: "Used for alignment only. It is not included in the PNG.", showRef: "Show reference", opacity: "Opacity", adjust: "Adjust", selectLogo: "Click a logo on the card to edit it", size: "Size", rotate: "Rotate", lock: "Lock", up: "Up", down: "Down", delete: "Delete", layers: "Layers", noLogo: "No logos yet", legal: "The output is a visual design file only. Logos come from public asset libraries; confirm permission before publishing." },
 };
 let language = localStorage.getItem("card-lang") || "zh";
 const copy = () => dictionaries[language];
@@ -144,8 +144,7 @@ function faceImage(id) {
     gradient.addColorStop(0.55, face.stops[1]);
     gradient.addColorStop(1, face.stops[2]);
     faceCtx.fillStyle = gradient;
-    roundedPath(faceCtx, CARD_W, CARD_H, RADIUS);
-    faceCtx.fill();
+    faceCtx.fillRect(0, 0, CARD_W, CARD_H);
     const sheen = faceCtx.createLinearGradient(0, 0, 0, CARD_H);
     sheen.addColorStop(0, "rgba(255,255,255,0.16)");
     sheen.addColorStop(0.42, "rgba(255,255,255,0)");
@@ -169,8 +168,7 @@ function paintSwatch(canvas, face) {
   gradient.addColorStop(0.55, face.stops[1]);
   gradient.addColorStop(1, face.stops[2]);
   context.fillStyle = gradient;
-  roundedPath(context, width, height, Math.round((3.18 / 85.6) * width));
-  context.fill();
+  context.fillRect(0, 0, width, height);
 }
 
  const SAVES_KEY = "card-saves";
@@ -933,6 +931,11 @@ function fileToData(file) {
      input.dispatchEvent(new Event("change"));
    });
  });
+document.querySelector("#reset-zoom").addEventListener("click", () => {
+  const view = dragMode === "reference" ? refView : cardView;
+  view.scale = 1;
+  paint();
+});
 document.querySelector("#clear").addEventListener("click", () => {
   refImage = null;
   refView = { scale: 1, x: 0.5, y: 0.5 };
@@ -1101,6 +1104,9 @@ function applyLanguage() {
   const requestTitle = language === "zh" ? "提交 logo" : "Submit a logo";
   const requestBody = language === "zh" ? "银行卡：\n\n请附上 SVG 或 PNG。\n" : "Card:\n\nPlease attach an SVG or PNG.\n";
   document.querySelector("#request-logo").href = `https://github.com/youmikk/card-face/issues/new?title=${encodeURIComponent(requestTitle)}&body=${encodeURIComponent(requestBody)}`;
+  const faceTitle = language === "zh" ? "提交图片" : "Submit an image";
+  const faceBody = language === "zh" ? "卡面名称：\n\n请附上图片。\n" : "Card name:\n\nPlease attach the image.\n";
+  document.querySelector("#request-face").href = `https://github.com/youmikk/card-face/issues/new?title=${encodeURIComponent(faceTitle)}&body=${encodeURIComponent(faceBody)}`;
   renderTerms();
   groups = buildGroups();
   marks = Object.fromEntries(groups.flatMap((group) => group.marks.map((mark) => [mark.id, mark])));

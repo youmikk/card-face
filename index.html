@@ -6,7 +6,7 @@
   <meta http-equiv="Cache-Control" content="no-cache" />
   <title>卡面设计生成器</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=20260924q" />
+   <link rel="stylesheet" href="styles.css?v=20260925a" />
 </head>
 <body>
   <header class="bar">
@@ -54,10 +54,16 @@
              <span data-i18n="dragRef">拖动参考图</span>
            </button>
          </div>
-        <button type="button" id="clear" class="quiet" data-i18n="clear">清空</button>
+        <div class="foot-actions">
+          <button type="button" id="reset-zoom" class="quiet icon-action" data-i18n-label="resetZoom" aria-label="复原">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 12a8 8 0 1 0 2.3-5.6M4 4v5h5"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M9 12h6"/></svg>
+          </button>
+          <button type="button" id="clear" class="quiet" data-i18n="clear">清空</button>
+        </div>
       </div>
+      <div class="pickers">
        <section class="face-strip">
-         <div class="head"><h2 data-i18n="cardImage">卡面图片</h2><button type="button" class="pick" id="pick-card" data-i18n="choose">选择图片</button></div>
+         <div class="head"><h2 data-i18n="cardImage">卡面图片</h2><div class="head-actions"><button type="button" class="pick" id="pick-card" data-i18n="choose">选择图片</button><a class="request" id="request-face" data-i18n="requestFace" href="https://github.com/youmikk/card-face/issues/new" target="_blank" rel="noreferrer">提交图片</a></div></div>
          <div class="library faces" id="faces"></div>
          <input id="photo" type="file" accept="image/*,.svg" hidden />
          <p class="note" data-i18n="cardNote">图片会等比缩放并居中填满卡面，超出部分自动裁掉。</p>
@@ -72,8 +78,8 @@
         <div class="tabs" id="tabs"></div>
         <label class="bank-picker"><span data-i18n="banks">银行</span><select id="bank-picker"></select></label>
         <div class="library" id="library"></div>
-
       </section>
+      </div>
     </section>
 
     <aside>
@@ -142,6 +148,6 @@
       </figure>
     </div>
   </div>
-  <script src="app.js?v=20260924q"></script>
+ <script src="app.js?v=20260925a"></script>
  </body>
 </html>
