@@ -230,7 +230,7 @@ function faceImage(id) {
  let cardSource = null;
  let saveSeq = saves.reduce((max, entry) => Math.max(max, entry.seq || 0), 0);
  function faceName(face) { return language === "zh" ? face.zh : face.en; }
- let faceCategories = [{ id: "solid", name: "" }, { id: "bank", name: "" }, { id: "transit", name: "" }, { id: "other", name: "" }];
+ let faceCategories = [];
  let faceCategory = "solid";
  function renderFaces() {
    const tabs = document.querySelector("#face-cats");
@@ -1173,12 +1173,15 @@ function applyLanguage() {
     node.setAttribute("aria-label", uiText[language][node.dataset.i18nLabel]);
   });
    renderTerms();
-   groups = buildGroups();
-   applyApproved();
-   marks = Object.fromEntries(groups.flatMap((group) => group.marks.map((mark) => [mark.id, mark])));
-  renderTabs();
-  renderLibrary();
-  renderFaces();
+   renderTerms();
+   if (catalogReady) {
+     groups = buildGroups();
+     applyApproved();
+     marks = Object.fromEntries(groups.flatMap((group) => group.marks.map((mark) => [mark.id, mark])));
+     renderTabs();
+     renderLibrary();
+     renderFaces();
+   }
    renderSaves();
   renderLogos();
   syncLogoAvailability();
@@ -1214,6 +1217,7 @@ document.querySelector("#terms-sheet").hidden = localStorage.getItem("card-terms
 applyLanguage();
 paint();
 renderLogos();
+ let catalogReady = false;
  const INTAKE = "https://review.youmikk.me";
  async function loadApproved() {
    try {
@@ -1221,6 +1225,7 @@ renderLogos();
      if (!response.ok) return;
      const data = await response.json();
      approved = Array.isArray(data.items) ? data.items : [];
+     catalogReady = true;
      if (Array.isArray(data.categories)) {
        faceCategories = data.categories.filter((entry) => entry && entry.id && (entry.kind || "face") === "face");
        logoCategories = data.categories.filter((entry) => entry && entry.id && entry.kind === "logo");

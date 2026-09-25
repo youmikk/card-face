@@ -213,11 +213,14 @@ function reviewPage() {
    const body = await request.json().catch(() => null);
    if (!body) return Response.json({ error: "fields" }, { status: 400 });
    const data = await catalog(env);
-   if (body.action === "add-category") {
+   if (body.action === "add-category" || body.action === "rename-category") {
      const name = String(body.name || "").trim().slice(0, 16);
-     const kind = body.kind === "logo" ? "logo" : "face";
      if (!name) return Response.json({ error: "name" }, { status: 400 });
-     data.categories.push({ id: crypto.randomUUID().replace(/-/g, "").slice(0, 12), name, kind });
+     if (body.action === "rename-category") {
+       const target = data.categories.find((entry) => entry.id === body.id);
+       if (!target) return Response.json({ error: "category" }, { status: 400 });
+       target.name = name;
+     } else data.categories.push({ id: crypto.randomUUID().replace(/-/g, "").slice(0, 12), name, kind: body.kind === "logo" ? "logo" : "face" });
    } else if (body.action === "remove-category") {
      const target = data.categories.find((entry) => entry.id === body.id);
      if (!target) return Response.json({ error: "category" }, { status: 400 });
@@ -243,6 +246,13 @@ function reviewPage() {
      if (!allowed.includes(body.category)) return Response.json({ error: "category" }, { status: 400 });
      item.category = body.category;
      if (item.kind === "logo") item.bank = "";
+     await saveRecords(env, items);
+   } else if (body.action === "rename-item") {
+     const items = await records(env);
+     const item = items.find((entry) => entry.id === body.id);
+     const name = String(body.name || "").trim().slice(0, 40);
+     if (!item || !name) return Response.json({ error: "name" }, { status: 400 });
+     item.name = name;
      await saveRecords(env, items);
    } else if (body.action === "hide-face") {
      const items = await records(env);
@@ -367,6 +377,12 @@ const PAGE = `<!doctype html>
      const open = document.createElement("button");
      open.type = "button"; open.className = "name"; open.textContent = (entry.kind === "face" ? "卡面 · " : "Logo · ") + entry.name;
      open.addEventListener("click", () => { openCategory = entry.kind + ":" + entry.id; drawCatalog(data); });
+     const rename = document.createElement("button");
+     rename.type = "button"; rename.textContent = "改名";
+     rename.addEventListener("click", () => {
+       const name = prompt("分类名称", entry.name);
+       if (name && name.trim() && name.trim() !== entry.name) catalogSend({ action: "rename-category", id: entry.id, name });
+     });
      const same = groups.filter((item) => item.kind === entry.kind);
      const index = same.indexOf(entry);
      const up = document.createElement("button");
@@ -378,7 +394,7 @@ const PAGE = `<!doctype html>
      const remove = document.createElement("button");
      remove.type = "button"; remove.className = "no"; remove.textContent = "删除分类";
      remove.addEventListener("click", () => catalogSend({ action: "remove-category", id: entry.id }));
-     row.append(open, up, down, remove);
+     row.append(open, rename, up, down, remove);
      cats.append(row);
    });
    const add = document.createElement("form");
@@ -405,8 +421,9 @@ const PAGE = `<!doctype html>
      const preview = document.createElement("img");
      preview.alt = item.name; preview.src = "/files/" + item.id;
      const body = document.createElement("div");
-     const name = document.createElement("strong");
-     name.textContent = item.name;
+     const name = document.createElement("input");
+     name.value = item.name; name.maxLength = 40;
+     name.addEventListener("change", () => catalogSend({ action: "rename-item", id: item.id, name: name.value }));
      const category = document.createElement("select");
      choices.forEach((entry) => category.append(Object.assign(document.createElement("option"), { value: entry.id, textContent: entry.name })));
      category.value = current.id;
