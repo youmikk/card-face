@@ -17,6 +17,8 @@ const LOGO_CATS = ["banks", "transit", "official", "payment"];
      if (url.pathname === "/review" && request.method === "GET") return reviewPage();
      if (url.pathname === "/review/password" && request.method === "GET") return passwordState(env);
      if (url.pathname === "/review/password" && request.method === "POST") return passwordSet(request, env);
+     if (url.pathname === "/review/catalog" && request.method === "GET") return catalogGet(request, env);
+     if (url.pathname === "/review/catalog" && request.method === "POST") return catalogAction(request, env);
      if (url.pathname === "/review/items" && request.method === "GET") return reviewItems(request, env);
      if (url.pathname === "/review/items" && request.method === "POST") return reviewAction(request, env);
      const pending = url.pathname.match(/^\/review\/file\/([A-Za-z0-9_-]+)$/);
@@ -37,14 +39,15 @@ function cors(response) {
 }
 
 function json(data, status = 200) {
-  return cors(Response.json(data, { status }));
-}
-
-async function manifest(request, env) {
-  const origin = new URL(request.url).origin;
-  const items = (await records(env)).filter((item) => item.status === "approved").map((item) => publicItem(item, origin));
-  return json({ items });
-}
+   return cors(Response.json(data, { status }));
+ }
+ 
+ async function manifest(request, env) {
+   const origin = new URL(request.url).origin;
+   const hidden = new Set((await catalog(env)).hidden || []);
+   const items = (await records(env)).filter((item) => item.status === "approved" && !hidden.has(item.id)).map((item) => publicItem(item, origin));
+   return json({ items, categories: publicCategories(await catalog(env)) });
+ }
 
 async function submit(request, env) {
   let form;
@@ -183,7 +186,61 @@ function reviewPage() {
   }
   await saveRecords(env, items);
   return Response.json({ ok: true });
-}
+ }
+ const DEFAULT_FACE_CATS = [{ id: "solid", name: "纯色" }, { id: "bank", name: "银行" }, { id: "transit", name: "交通" }, { id: "other", name: "其他" }];
+ function publicCategories(data) {
+   return (data.categories || DEFAULT_FACE_CATS).filter((entry) => entry && entry.id && entry.name);
+ }
+ async function catalog(env) {
+   const object = await env.BUCKET.get("catalog.json");
+   const data = object ? await object.json().catch(() => null) : null;
+   const categories = Array.isArray(data?.categories) && data.categories.length ? data.categories : DEFAULT_FACE_CATS.map((entry) => ({ ...entry }));
+   return { categories, hidden: Array.isArray(data?.hidden) ? data.hidden : [] };
+ }
+ async function saveCatalog(env, data) {
+   await env.BUCKET.put("catalog.json", JSON.stringify(data), { httpMetadata: { contentType: "application/json" } });
+ }
+ async function catalogGet(request, env) {
+   if (!(await authorized(request, env))) return new Response("unauthorized", { status: 401 });
+   const data = await catalog(env);
+   const items = (await records(env)).filter((item) => item.kind === "face" && item.status === "approved" && !data.hidden.includes(item.id));
+   return Response.json({ categories: data.categories, items });
+ }
+ async function catalogAction(request, env) {
+   if (!(await authorized(request, env))) return new Response("unauthorized", { status: 401 });
+   const body = await request.json().catch(() => null);
+   if (!body) return Response.json({ error: "fields" }, { status: 400 });
+   const data = await catalog(env);
+   if (body.action === "add-category") {
+     const name = String(body.name || "").trim().slice(0, 16);
+     if (!name) return Response.json({ error: "name" }, { status: 400 });
+     data.categories.push({ id: crypto.randomUUID().replace(/-/g, "").slice(0, 12), name });
+   } else if (body.action === "remove-category") {
+     if (!data.categories.some((entry) => entry.id === body.id) || data.categories.length < 2) return Response.json({ error: "category" }, { status: 400 });
+     const fallback = data.categories.find((entry) => entry.id !== body.id).id;
+     data.categories = data.categories.filter((entry) => entry.id !== body.id);
+     const items = await records(env);
+     items.forEach((item) => { if (item.kind === "face" && item.category === body.id) item.category = fallback; });
+     await saveRecords(env, items);
+   } else if (body.action === "move-category") {
+     const index = data.categories.findIndex((entry) => entry.id === body.id);
+     const next = index + (body.direction === "up" ? -1 : 1);
+     if (index < 0 || next < 0 || next >= data.categories.length) return Response.json({ error: "move" }, { status: 400 });
+     const [entry] = data.categories.splice(index, 1);
+     data.categories.splice(next, 0, entry);
+   } else if (body.action === "move-face") {
+     if (!data.categories.some((entry) => entry.id === body.category)) return Response.json({ error: "category" }, { status: 400 });
+     const items = await records(env);
+     const item = items.find((entry) => entry.id === body.id && entry.kind === "face");
+     if (!item) return Response.json({ error: "missing" }, { status: 404 });
+     item.category = body.category;
+     await saveRecords(env, items);
+   } else if (body.action === "hide-face") {
+     if (!data.hidden.includes(body.id)) data.hidden.push(body.id);
+   } else return Response.json({ error: "action" }, { status: 400 });
+   await saveCatalog(env, data);
+   return Response.json({ ok: true });
+ }
 
 function publicItem(item, origin) {
   return {
@@ -245,10 +302,11 @@ const PAGE = `<!doctype html>
   .no { background: #efe7e4; }
   @media (max-width: 700px) { article { grid-template-columns: 1fr; } }
 </style>
-<main>
-  <h1>待审核</h1>
-  <div id="list"></div>
-</main>
+ <main>
+   <h1>待审核</h1>
+   <section id="catalog"></section>
+   <div id="list"></div>
+ </main>
 <script>
  let token = "";
  const faces = [["solid","纯色"],["bank","银行"],["transit","交通"],["other","其他"]];
@@ -344,7 +402,64 @@ const PAGE = `<!doctype html>
     list.appendChild(card);
   }
   if (!data.items.length) list.textContent = "没有待审核的图片";
-}
+ }
+ async function catalogSend(body) {
+   await fetch("/review/catalog", { method: "POST", headers: { ...auth(), "Content-Type": "application/json" }, body: JSON.stringify(body) });
+   await loadCatalog();
+ }
+ async function loadCatalog() {
+   const response = await fetch("/review/catalog", { headers: auth() });
+   const box = document.querySelector("#catalog");
+   if (!response.ok) { box.textContent = ""; return; }
+   const data = await response.json();
+   box.replaceChildren();
+   const title = document.createElement("h2");
+   title.textContent = "网页卡面";
+   const cats = document.createElement("div");
+   data.categories.forEach((entry, index) => {
+     const row = document.createElement("div");
+     row.className = "row";
+     const name = document.createElement("strong");
+     name.textContent = entry.name;
+     const up = document.createElement("button");
+     up.type = "button"; up.textContent = "上移"; up.disabled = index === 0;
+     up.addEventListener("click", () => catalogSend({ action: "move-category", id: entry.id, direction: "up" }));
+     const down = document.createElement("button");
+     down.type = "button"; down.textContent = "下移"; down.disabled = index === data.categories.length - 1;
+     down.addEventListener("click", () => catalogSend({ action: "move-category", id: entry.id, direction: "down" }));
+     const remove = document.createElement("button");
+     remove.type = "button"; remove.className = "no"; remove.textContent = "删除分类";
+     remove.addEventListener("click", () => catalogSend({ action: "remove-category", id: entry.id }));
+     row.append(name, up, down, remove);
+     cats.append(row);
+   });
+   const add = document.createElement("form");
+   add.className = "row";
+   const input = document.createElement("input");
+   input.placeholder = "新分类名称"; input.maxLength = 16; input.required = true;
+   const submit = document.createElement("button");
+   submit.className = "ok"; submit.textContent = "添加分类";
+   add.append(input, submit);
+   add.addEventListener("submit", (event) => { event.preventDefault(); catalogSend({ action: "add-category", name: input.value }); });
+   const cards = document.createElement("div");
+   data.items.forEach((item) => {
+     const row = document.createElement("div");
+     row.className = "row";
+     const name = document.createElement("span");
+     name.textContent = item.name;
+     const category = document.createElement("select");
+     data.categories.forEach((entry) => category.append(Object.assign(document.createElement("option"), { value: entry.id, textContent: entry.name })));
+     category.value = data.categories.some((entry) => entry.id === item.category) ? item.category : data.categories[0].id;
+     category.addEventListener("change", () => catalogSend({ action: "move-face", id: item.id, category: category.value }));
+     const remove = document.createElement("button");
+     remove.type = "button"; remove.className = "no"; remove.textContent = "从网页删除";
+     remove.addEventListener("click", () => catalogSend({ action: "hide-face", id: item.id }));
+     row.append(name, category, remove);
+     cards.append(row);
+   });
+   if (!data.items.length) cards.textContent = "网页上还没有已通过的卡面";
+   box.append(title, cats, add, cards);
+ }
 function field(label, type, value) {
   const node = document.createElement("label");
   node.append(label, Object.assign(document.createElement("input"), { type, value }));
@@ -358,5 +473,5 @@ function select(label, options, value) {
   node.append(label, box);
   return node;
 }
-load();
+ load().then(loadCatalog);
 </script>`;

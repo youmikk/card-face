@@ -226,19 +226,19 @@ function faceImage(id) {
  let cardSource = null;
  let saveSeq = saves.reduce((max, entry) => Math.max(max, entry.seq || 0), 0);
  function faceName(face) { return language === "zh" ? face.zh : face.en; }
- const FACE_CATS = ["solid", "bank", "transit", "other"];
+ let faceCategories = [{ id: "solid", name: "" }, { id: "bank", name: "" }, { id: "transit", name: "" }, { id: "other", name: "" }];
  let faceCategory = "solid";
  function renderFaces() {
    const tabs = document.querySelector("#face-cats");
    tabs.replaceChildren();
    const text = uiText[language];
-   const labels = { solid: text.catSolid, bank: text.catBank, transit: text.catTransit, other: text.catOther };
-   FACE_CATS.forEach((id) => {
+   const fallback = { solid: text.catSolid, bank: text.catBank, transit: text.catTransit, other: text.catOther };
+   faceCategories.forEach((entry) => {
      const tab = document.createElement("button");
      tab.type = "button";
-     tab.className = "tab" + (id === faceCategory ? " active" : "");
-     tab.textContent = labels[id];
-     tab.addEventListener("click", () => { faceCategory = id; renderFaces(); });
+     tab.className = "tab" + (entry.id === faceCategory ? " active" : "");
+     tab.textContent = entry.name || fallback[entry.id] || entry.id;
+     tab.addEventListener("click", () => { faceCategory = entry.id; renderFaces(); });
      tabs.appendChild(tab);
    });
    const box = document.querySelector("#faces");
@@ -1214,6 +1214,8 @@ renderLogos();
      if (!response.ok) return;
      const data = await response.json();
      approved = Array.isArray(data.items) ? data.items : [];
+     if (Array.isArray(data.categories) && data.categories.length) faceCategories = data.categories.filter((entry) => entry && entry.id);
+     if (!faceCategories.some((entry) => entry.id === faceCategory)) faceCategory = faceCategories[0].id;
      applyLanguage();
    } catch {}
  }
