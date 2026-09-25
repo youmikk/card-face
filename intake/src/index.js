@@ -1367,7 +1367,7 @@ function itemEditor(item) {
   remove.className = "no";
   remove.textContent = "彻底删除";
   remove.addEventListener("click", function () {
-    if (!confirm("彻底删除「" + item.name + "」？\n文件与记录都会被移除，无法恢复。")) return;
+    if (!confirm("彻底删除「" + item.name + "」？\\n文件与记录都会被移除，无法恢复。")) return;
     send("/review/catalog", { action: "delete-item", id: item.id, confirm: true });
   });
   row.append(primary, secondary, remove);

@@ -747,3 +747,18 @@ test("一键修正历史类型：按分类把 kind 写回记录", async () => {
   const again = await (await call(env, "/review/catalog", { method: "POST", token: PASSWORD, ip, payload: { action: "fix-kinds" } })).json();
   assert.equal(again.fixed, 0, "没有可修的就不写盘");
 });
+
+test("审核页面的内联脚本必须能被浏览器解析（模板转义不能把字符串拆断）", async () => {
+  const env = makeEnv();
+  const response = await call(env, "/review");
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  const scripts = [...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)].map((match) => match[1]);
+  assert.equal(scripts.length >= 1, true, "审核页应包含内联脚本");
+  scripts.forEach((code, index) => {
+    // 页面脚本写在模板字符串里，`\n` 这类转义会在生成 HTML 时变成真换行，
+    // 直接把字符串字面量拆断、整段脚本解析失败（后台会变成一片空白）。
+    assert.doesNotThrow(() => new Function(code), `内联脚本 #${index} 不应有语法错误`);
+  });
+  assert.equal(html.includes("彻底删除「"), true, "确认对话框文案仍在");
+});
