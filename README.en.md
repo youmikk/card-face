@@ -10,7 +10,8 @@ Static files only. No backend.
 
 ## Usage
 
-- Upload a card image. It fills the card and can be zoomed and dragged. Pinch to zoom on a phone, or use the mouse wheel on a computer.
+- Choose a built-in solid card to load it into the preview, or upload your own image. It fills the card and can be zoomed and dragged. Pinch to zoom on a phone, or use the mouse wheel on a computer.
+ - Save stores the finished card in the save area, including the placed logos. Open a thumbnail to edit it again; saving again updates that card. Export all downloads each saved card as a PNG. Saves stay in this browser and disappear when site data is cleared. Uploaded images are not sent to a server.
 - Logos can be browsed without a card, but they cannot be added. Selecting one asks you to upload a card first.
 - Pick a bank, then choose its mark or the lockup with its name. The library also includes payment marks and T-Union.
 - Upload several of your own logos at once (SVG, PNG, JPG, or WebP).

@@ -19,6 +19,15 @@ const dictionaries = {
     logoReady: "可多选，支持 SVG、PNG、JPG、WebP",
     logoNeed: "请先上传卡面图片",
     none: "暂无 logo",
+    saved: "已保存",
+     saveKept: "已保存。原图较大，下次打开只用缩略图。",
+     saveFailed: "保存失败，请删掉一些已保存的卡面后再试。",
+     exportFailed: "导出失败，请换一张卡面后再试。",
+     nothingSaved: "保存区还是空的",
+     exportDone: "已开始下载",
+     replaceTitle: "换卡面会清掉上面的 logo",
+     replaceText: "当前摆放不会保留。要继续吗？",
+     cardName: "卡面",
   },
   en: {
     styles: { flat: "Flat", "flat-rounded": "Rounded", logo: "Logo", "logo-border": "Border", mono: "Mono", "mono-outline": "Outline" },
@@ -29,11 +38,20 @@ const dictionaries = {
     logoReady: "Multiple files: SVG, PNG, JPG, WebP",
     logoNeed: "Upload a card image first",
     none: "No logos yet",
+    saved: "Saved",
+     saveKept: "Saved. The photo was large, so reopening uses the thumbnail.",
+     saveFailed: "Could not save. Delete some saved cards and try again.",
+     exportFailed: "Export failed. Try another card image.",
+     nothingSaved: "Nothing saved yet",
+     exportDone: "Download started",
+     replaceTitle: "Changing the card removes its logos",
+     replaceText: "The current layout will not be kept. Continue?",
+     cardName: "Card",
   },
 };
 const uiText = {
-  zh: { title: "卡面设计生成器", theme: "深色", themeLight: "浅色", github: "GitHub 项目", support: "赞赏", afdian: "爱发电", wechatSupport: "微信赞赏码", close: "关闭", termsTitle: "使用条款", termsAccept: "我已阅读并同意", preview: "卡面预览", export: "导出 PNG", emptyTitle: "上传一张图片作为卡面", emptyText: "图片会按 1.586 : 1 铺满并居中，之后可以缩放和拖动调整构图。", choose: "选择图片", rounded: "按 3.18 mm 圆角呈现（导出同步）", dragCard: "拖动卡面", dragRef: "拖动参考图", clear: "清空", uploadLogo: "上传自己的 logo", requestLogo: "提交 logo", banks: "银行", cardImage: "卡面图片", dropCard: "拖拽图片到此处，或点击选择", refit: "重新匹配", zoom: "缩放", cardNote: "图片会等比缩放并居中填满卡面，超出部分自动裁掉。", reference: "参考图", dropRef: "拖拽参考图到此处，或点击选择", refHint: "只用于对位，不会出现在导出的 PNG 里", showRef: "显示参考图", opacity: "透明度", adjust: "调整", selectLogo: "点击卡面上的 logo 进行编辑", size: "大小", rotate: "旋转", lock: "锁定", up: "上移", down: "下移", delete: "删除", layers: "图层", noLogo: "暂无 logo", legal: "输出只是视觉设计文件，不代表任何机构发行的卡片。图标来自公开素材库，使用前请确认你有相应授权。" },
-  en: { title: "Card Design Generator", theme: "Dark", themeLight: "Light", github: "GitHub project", support: "Support", afdian: "Afdian", wechatSupport: "WeChat", close: "Close", termsTitle: "Terms of use", termsAccept: "I have read and agree", preview: "Card preview", export: "Export PNG", emptyTitle: "Upload an image for the card", emptyText: "The image fills the 1.586:1 card and can then be zoomed and dragged.", choose: "Choose image", rounded: "Show 3.18 mm rounded corners (also exported)", dragCard: "Move card", dragRef: "Move reference", clear: "Clear", uploadLogo: "Upload your own logos", requestLogo: "Submit a logo", banks: "Banks", cardImage: "Card image", dropCard: "Drop an image here, or click to choose", refit: "Refit", zoom: "Zoom", cardNote: "The image is scaled and centered to fill the card. Overflow is cropped.", reference: "Reference", dropRef: "Drop a reference here, or click to choose", refHint: "Used for alignment only. It is not included in the PNG.", showRef: "Show reference", opacity: "Opacity", adjust: "Adjust", selectLogo: "Click a logo on the card to edit it", size: "Size", rotate: "Rotate", lock: "Lock", up: "Up", down: "Down", delete: "Delete", layers: "Layers", noLogo: "No logos yet", legal: "The output is a visual design file only. Logos come from public asset libraries; confirm permission before publishing." },
+   zh: { title: "卡面设计生成器", theme: "深色", themeLight: "浅色", github: "GitHub 项目", support: "赞赏", afdian: "爱发电", wechatSupport: "微信赞赏码", close: "关闭", termsTitle: "使用条款", termsAccept: "我已阅读并同意", preview: "卡面预览", save: "保存", export: "导出 PNG", exportAll: "全部导出", savedCards: "保存区", emptyTitle: "上传一张图片作为卡面", emptyText: "图片会按 1.586 : 1 铺满并居中，之后可以缩放和拖动调整构图。", choose: "选择图片", rounded: "按 3.18 mm 圆角呈现（导出同步）", dragCard: "拖动卡面", dragRef: "拖动参考图", clear: "清空", uploadLogo: "上传自己的 logo", requestLogo: "提交 logo", banks: "银行", cardImage: "卡面图片", dropCard: "拖拽图片到此处，或点击选择", refit: "重新匹配", zoom: "缩放", cardNote: "图片会等比缩放并居中填满卡面，超出部分自动裁掉。", saveNote: "点保存记下当前卡面。点缩略图可以再打开修改。只存在这台浏览器里。", reference: "参考图", dropRef: "拖拽参考图到此处，或点击选择", refHint: "只用于对位，不会出现在导出的 PNG 里", showRef: "显示参考图", opacity: "透明度", adjust: "调整", selectLogo: "点击卡面上的 logo 进行编辑", size: "大小", rotate: "旋转", lock: "锁定", up: "上移", down: "下移", delete: "删除", layers: "图层", noLogo: "暂无 logo", legal: "输出只是视觉设计文件，不代表任何机构发行的卡片。图标来自公开素材库，使用前请确认你有相应授权。" },
+   en: { title: "Card Design Generator", theme: "Dark", themeLight: "Light", github: "GitHub project", support: "Support", afdian: "Afdian", wechatSupport: "WeChat", close: "Close", termsTitle: "Terms of use", termsAccept: "I have read and agree", preview: "Card preview", save: "Save", export: "Export PNG", exportAll: "Export all", savedCards: "Saved", emptyTitle: "Upload an image for the card", emptyText: "The image fills the 1.586:1 card and can then be zoomed and dragged.", choose: "Choose image", rounded: "Show 3.18 mm rounded corners (also exported)", dragCard: "Move card", dragRef: "Move reference", clear: "Clear", uploadLogo: "Upload your own logos", requestLogo: "Submit a logo", banks: "Banks", cardImage: "Card image", dropCard: "Drop an image here, or click to choose", refit: "Refit", zoom: "Zoom", cardNote: "The image is scaled and centered to fill the card. Overflow is cropped.", saveNote: "Save stores the current card. Open a thumbnail to edit it again. It stays in this browser only.", reference: "Reference", dropRef: "Drop a reference here, or click to choose", refHint: "Used for alignment only. It is not included in the PNG.", showRef: "Show reference", opacity: "Opacity", adjust: "Adjust", selectLogo: "Click a logo on the card to edit it", size: "Size", rotate: "Rotate", lock: "Lock", up: "Up", down: "Down", delete: "Delete", layers: "Layers", noLogo: "No logos yet", legal: "The output is a visual design file only. Logos come from public asset libraries; confirm permission before publishing." },
 };
 let language = localStorage.getItem("card-lang") || "zh";
 const copy = () => dictionaries[language];
@@ -45,7 +63,7 @@ const terms = {
     ["四、素材库", "网站提供的银行、支付和交通标识只用于设计预览，不构成任何授权。公开使用前，请自行确认你有相应权利。"],
     ["五、禁止用途", "不得将本网站或其导出结果用于伪造、仿冒真实卡片，或用于欺诈、身份冒用、洗钱及其他违法活动。"],
     ["六、输出的性质", "导出的 PNG 只是视觉设计文件，不代表任何机构发行的支付卡、交通卡或其他凭证，也不能用于制作可交易或可验证的凭证。设计稿、艺术卡、收藏卡等非凭证用途不在此限。"],
-    ["七、本地处理", "图片处理和导出都在你的浏览器本地完成，上传内容不会发送到服务器，网站也不会保存或收集这些文件。请自行保管导出结果。"],
+     ["七、本地处理", "图片处理和导出都在你的浏览器本地完成，上传内容不会发送到服务器。点保存后的卡面只存在这台浏览器里，清除站点数据后会消失。请自行保管导出结果。"],
     ["八、按现状提供", "本网站按现状提供，不对导出结果的合法性、准确性或适用性作出保证。"],
     ["九、条款变更", "本条款可能更新。更新后继续使用，即视为接受更新后的内容。"],
   ],
@@ -56,7 +74,7 @@ const terms = {
     ["4. The asset library", "Bank, payment, and transit marks supplied here are layout previews only. They are not a license, and you must confirm your own right before publishing them."],
     ["5. Prohibited use", "Do not use the site or its output to forge or imitate a real card, or for fraud, impersonation, money laundering, or any unlawful activity."],
     ["6. What the output is", "An exported PNG is only a visual design file. It is not an issued payment, transit, or other credential, and it must not be made into one that can be used for a transaction. Design drafts, art cards, and collectible cards are outside this limit."],
-    ["7. Local processing", "Editing and export happen in your browser. Uploads are not sent to a server, and the site does not store or collect those files. Keep your own copy of anything you export."],
+     ["7. Local processing", "Editing and export happen in your browser. Uploads are not sent to a server. Cards you save stay in this browser until its site data is cleared. Keep your own copy of anything you export."],
     ["8. Provided as is", "The site is provided as is, without any warranty that the output is lawful, accurate, or suitable for a particular purpose."],
     ["9. Changes", "These terms may be updated. Continuing to use the site after an update means you accept the updated terms."],
   ],
@@ -100,10 +118,292 @@ function buildGroups() {
   ];
 
 }
+const faces = [
+  { id: "ink", zh: "墨蓝", en: "Ink", stops: ["#243044", "#1a2433", "#31445d"] },
+  { id: "navy", zh: "海蓝", en: "Navy", stops: ["#163a6b", "#0e2749", "#2d5d9a"] },
+  { id: "teal", zh: "青绿", en: "Teal", stops: ["#0e6e66", "#0a4a45", "#1a9a8e"] },
+  { id: "forest", zh: "松绿", en: "Forest", stops: ["#1d5a3a", "#123d27", "#2f8a58"] },
+  { id: "wine", zh: "酒红", en: "Wine", stops: ["#6d2438", "#471626", "#9a3d56"] },
+  { id: "slate", zh: "石板", en: "Slate", stops: ["#3d4654", "#2a313b", "#5d6a7c"] },
+  { id: "sand", zh: "沙金", en: "Sand", stops: ["#c4a574", "#a88858", "#e2cba4"] },
+  { id: "paper", zh: "素白", en: "Paper", stops: ["#f4f1ea", "#e4dfd4", "#ffffff"] },
+];
+const faceCanvas = document.createElement("canvas");
+faceCanvas.width = CARD_W;
+faceCanvas.height = CARD_H;
+const faceCtx = faceCanvas.getContext("2d");
+const faceCache = {};
+const faceJobs = {};
+function faceImage(id) {
+  if (faceCache[id]) return Promise.resolve(faceCache[id]);
+  if (faceJobs[id]) return faceJobs[id];
+  faceJobs[id] = new Promise((resolve) => {
+    const face = faces.find((entry) => entry.id === id);
+    const gradient = faceCtx.createLinearGradient(0, 0, CARD_W, CARD_H);
+    gradient.addColorStop(0, face.stops[0]);
+    gradient.addColorStop(0.55, face.stops[1]);
+    gradient.addColorStop(1, face.stops[2]);
+    faceCtx.fillStyle = gradient;
+    roundedPath(faceCtx, CARD_W, CARD_H, RADIUS);
+    faceCtx.fill();
+    const sheen = faceCtx.createLinearGradient(0, 0, 0, CARD_H);
+    sheen.addColorStop(0, "rgba(255,255,255,0.16)");
+    sheen.addColorStop(0.42, "rgba(255,255,255,0)");
+    faceCtx.fillStyle = sheen;
+    faceCtx.save();
+    faceCtx.clip();
+    faceCtx.fillRect(0, 0, CARD_W, CARD_H);
+    faceCtx.restore();
+    const image = new Image();
+    image.onload = () => { faceCache[id] = image; resolve(image); };
+    image.src = faceCanvas.toDataURL("image/png");
+  });
+  return faceJobs[id];
+}
+function paintSwatch(canvas, face) {
+  const context = canvas.getContext("2d");
+  const width = canvas.width;
+  const height = canvas.height;
+  const gradient = context.createLinearGradient(0, 0, width, height);
+  gradient.addColorStop(0, face.stops[0]);
+  gradient.addColorStop(0.55, face.stops[1]);
+  gradient.addColorStop(1, face.stops[2]);
+  context.fillStyle = gradient;
+  roundedPath(context, width, height, Math.round((3.18 / 85.6) * width));
+  context.fill();
+}
+
+ const SAVES_KEY = "card-saves";
+ let saves = [];
+ try { saves = JSON.parse(localStorage.getItem(SAVES_KEY) || "[]") || []; } catch { saves = []; }
+ if (!Array.isArray(saves)) saves = [];
+ let activeSave = null;
+ let cardSource = null;
+ let saveSeq = saves.reduce((max, entry) => Math.max(max, entry.seq || 0), 0);
+ function faceName(face) { return language === "zh" ? face.zh : face.en; }
+ function renderFaces() {
+   const box = document.querySelector("#faces");
+   box.replaceChildren();
+   faces.forEach((face) => {
+     const button = document.createElement("button");
+     button.type = "button";
+     button.className = "face" + (cardSource === `face:${face.id}` && !activeSave ? " active" : "");
+     const swatch = document.createElement("canvas");
+     swatch.width = 160;
+     swatch.height = 101;
+     paintSwatch(swatch, face);
+     const label = document.createElement("span");
+     label.textContent = faceName(face);
+     button.append(swatch, label);
+     button.addEventListener("click", () => selectFace(face.id));
+     box.appendChild(button);
+   });
+ }
+ function renderSaves() {
+   const box = document.querySelector("#saves");
+   box.replaceChildren();
+   if (!saves.length) {
+     const note = document.createElement("p");
+     note.className = "muted empty-note";
+     note.textContent = copy().nothingSaved;
+     box.appendChild(note);
+     return;
+   }
+   [...saves].reverse().forEach((entry) => {
+     const button = document.createElement("button");
+     button.type = "button";
+     button.className = "face" + (activeSave === entry.id ? " active" : "");
+     const image = document.createElement("canvas");
+     image.width = 160;
+     image.height = 101;
+     paintSavedThumb(image, entry);
+     image.dataset.thumb = entry.thumb || "";
+     const label = document.createElement("span");
+     label.textContent = entry.name;
+     const remove = document.createElement("button");
+     remove.type = "button";
+     remove.className = "face-delete";
+     remove.setAttribute("aria-label", uiText[language].delete);
+     remove.innerHTML = `<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+     remove.addEventListener("click", (event) => {
+       event.stopPropagation();
+       event.preventDefault();
+       saves = saves.filter((item) => item.id !== entry.id);
+      const wasOpen = activeSave === entry.id;
+      if (wasOpen) {
+        activeSave = null;
+        cardSource = null;
+        cardImage = null;
+        cardView = { scale: 1, x: 0.5, y: 0.5 };
+        items = [];
+        selected = null;
+      }
+      persistSaves();
+      renderSaves();
+      if (wasOpen) {
+        paint();
+        renderLogos();
+        syncLogoAvailability();
+        renderFaces();
+      }
+    });
+     button.append(image, label);
+     button.addEventListener("click", () => openSave(entry.id));
+     button.append(remove);
+     box.appendChild(button);
+   });
+ }
+ function snapshot() {
+   return {
+     cardView,
+     items: items.map((item) => ({ ...item })),
+     selected,
+     seq,
+     rounded,
+     cardSource,
+   };
+ }
+ function applySnapshot(saved) {
+   cardView = saved.cardView || { scale: 1, x: 0.5, y: 0.5 };
+   items = (saved.items || []).map((item) => ({ ...item }));
+   selected = null;
+   seq = Math.max(seq, saved.seq || 1, ...(items.length ? items.map((item) => item.id + 1) : [1]));
+   rounded = saved.rounded !== false;
+   document.querySelector("#rounded").checked = rounded;
+ }
+ let thumbToken = 0;
+ function paintSavedThumb(canvas, entry) {
+   const context = canvas.getContext("2d");
+   const token = (thumbToken += 1);
+   canvas.dataset.token = String(token);
+   const faceId = String(entry.state && entry.state.cardSource || "");
+   const face = faceId.startsWith("face:") ? faces.find((item) => item.id === faceId.slice(5)) : null;
+   if (face) paintSwatch(canvas, face);
+   else { context.fillStyle = "#d7dee7"; context.fillRect(0, 0, canvas.width, canvas.height); }
+   const marks = (entry.state && entry.state.items) || [];
+   const loaded = {};
+   let photo = null;
+   const paint = () => {
+     if (canvas.dataset.token !== String(token)) return;
+     if (face) paintSwatch(canvas, face);
+     else { context.fillStyle = "#d7dee7"; context.fillRect(0, 0, canvas.width, canvas.height); }
+     if (photo && photo.complete && photo.naturalWidth) context.drawImage(photo, 0, 0, canvas.width, canvas.height);
+     marks.forEach((item) => {
+       const image = loaded[item.id];
+       if (!image) return;
+       const width = item.width * (canvas.width / Math.max(card.clientWidth, 1));
+       const height = width * image.naturalHeight / image.naturalWidth;
+       context.save();
+       context.translate((item.x / 100) * canvas.width, (item.y / 100) * canvas.height);
+       context.rotate((item.rotate * Math.PI) / 180);
+       context.globalAlpha = item.opacity;
+       context.drawImage(image, -width / 2, -height / 2, width, height);
+       context.restore();
+     });
+   };
+   if (!entry.thumb && !marks.length) return;
+   let pending = (entry.thumb ? 1 : 0) + marks.length;
+   const done = () => { pending -= 1; if (!pending) paint(); };
+   if (entry.thumb) {
+     photo = new Image();
+     photo.onload = done;
+     photo.onerror = () => { photo = null; done(); };
+     photo.src = entry.thumb;
+   }
+   marks.forEach((item) => {
+     const image = new Image();
+     image.onload = () => { loaded[item.id] = image; done(); };
+     image.onerror = done;
+     image.src = item.src;
+   });
+ }
+ async function cardThumb() {
+   const blob = await renderCardBlob(cardImage, cardView, items, rounded);
+   if (!blob) return "";
+   const url = URL.createObjectURL(blob);
+   try {
+     const image = await loadImage(url);
+     const canvas = document.createElement("canvas");
+     canvas.width = 320;
+     canvas.height = 202;
+     canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+     return canvas.toDataURL("image/jpeg", 0.72);
+   } catch {
+     return "";
+   } finally {
+     URL.revokeObjectURL(url);
+  }
+}
+ async function selectFace(id) {
+   if (items.length && !window.confirm(`${copy().replaceTitle}\n${copy().replaceText}`)) return;
+   activeSave = null;
+   cardSource = `face:${id}`;
+   cardImage = await faceImage(id);
+   cardView = { scale: 1, x: 0.5, y: 0.5 };
+   items = [];
+   selected = null;
+  paint();
+  renderLogos();
+   syncLogoAvailability();
+   renderFaces();
+   renderSaves();
+ }
+ function blankCard() {
+   if (items.length && !window.confirm(`${copy().replaceTitle}\n${copy().replaceText}`)) return;
+   activeSave = null;
+   cardSource = null;
+   cardImage = null;
+   cardView = { scale: 1, x: 0.5, y: 0.5 };
+   items = [];
+   selected = null;
+   paint();
+   renderLogos();
+   syncLogoAvailability();
+   renderFaces();
+   renderSaves();
+ }
+ function persistSaves() {
+   try {
+     localStorage.setItem(SAVES_KEY, JSON.stringify(saves));
+     return true;
+   } catch {
+     return false;
+   }
+ }
+ async function openSave(id) {
+   const entry = saves.find((item) => item.id === id);
+   if (!entry) return;
+   const state = entry.state || {};
+   if (String(state.cardSource || "").startsWith("face:")) {
+     uploadData = "";
+     cardImage = await faceImage(state.cardSource.slice(5));
+   }
+  else if (entry.image || entry.thumb) {
+    uploadData = entry.image || "";
+    try { cardImage = await loadImage(entry.image || entry.thumb); }
+    catch {
+      uploadData = "";
+      if (!entry.thumb) { showToast(copy().logoNeed); return; }
+      try { cardImage = await loadImage(entry.thumb); }
+      catch { showToast(copy().logoNeed); return; }
+    }
+  }
+  else { showToast(copy().logoNeed); return; }
+  activeSave = id;
+  applySnapshot(state);
+  cardSource = uploadData || String(state.cardSource || "").startsWith("face:") ? (state.cardSource || "upload") : "thumb";
+   paint();
+   renderLogos();
+   syncLogoAvailability();
+   renderFaces();
+   renderSaves();
+ }
+
 let groups = buildGroups();
 let marks = Object.fromEntries(groups.flatMap((group) => group.marks.map((mark) => [mark.id, mark])));
 
 let cardImage = null;
+let uploadData = "";
 let cardView = { scale: 1, x: 0.5, y: 0.5 };
 let refImage = null;
 let refView = { scale: 1, x: 0.5, y: 0.5 };
@@ -416,8 +716,11 @@ function startLogoDrag(event, item) {
 }
 
 const pointers = new Map();
+let wheelArmed = false;
 card.addEventListener("pointerdown", (event) => {
-  if (event.target.closest(".badge")) return;
+  if (event.target.closest(".badge")) { wheelArmed = false; return; }
+  wheelArmed = true;
+  if (selected !== null) { selected = null; renderLogos(); }
   const image = dragMode === "reference" ? refImage : cardImage;
   if (!image) return;
   pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
@@ -439,7 +742,6 @@ card.addEventListener("pointermove", (event) => {
     const view = drag.type === "reference" ? refView : cardView;
     if (!drag.pinch) drag.pinch = distance;
     view.scale = clamp(drag.scale * distance / Math.max(drag.pinch, 1), 1, 3);
-    if (drag.type === "card") document.querySelector("#card-scale").value = Math.round(view.scale * 100);
     paint();
     return;
   }
@@ -492,6 +794,7 @@ function endDrag(event) {
   if (drag && (!event.pointerId || event.pointerId === drag.pointerId || pointers.size === 0)) drag = null;
 }
 card.addEventListener("pointerup", endDrag);
+document.addEventListener("pointerdown", (event) => { if (!card.contains(event.target)) wheelArmed = false; });
 card.addEventListener("pointercancel", endDrag);
 
 document.querySelector("#modes").addEventListener("click", (event) => {
@@ -501,18 +804,17 @@ document.querySelector("#modes").addEventListener("click", (event) => {
   document.querySelectorAll("#modes button").forEach((node) => node.classList.toggle("active", node === button));
 });
 
-document.querySelector("#rounded").addEventListener("change", (event) => { rounded = event.target.checked; paint(); });
+ document.querySelector("#rounded").addEventListener("change", (event) => { rounded = event.target.checked; paint(); });
 card.addEventListener("wheel", (event) => {
-  const image = dragMode === "reference" ? refImage : cardImage;
-  if (!image || event.target.closest(".badge")) return;
-  event.preventDefault();
-  const view = dragMode === "reference" ? refView : cardView;
-  view.scale = clamp(view.scale * (event.deltaY < 0 ? 1.08 : 0.92), 1, 3);
-  if (dragMode === "card") document.querySelector("#card-scale").value = Math.round(view.scale * 100);
-  paint();
-}, { passive: false });
-document.querySelector("#card-scale").addEventListener("input", (event) => { cardView.scale = Number(event.target.value) / 100; paint(); });
-document.querySelector("#fit-card").addEventListener("click", () => { cardView = { scale: 1, x: 0.5, y: 0.5 }; document.querySelector("#card-scale").value = 100; paint(); });
+  if (!wheelArmed || !card.contains(event.target)) return;
+   if (dragMode === "reference" && !refImage) return;
+   const image = dragMode === "reference" ? refImage : cardImage;
+   if (!image) return;
+   event.preventDefault();
+   const view = dragMode === "reference" ? refView : cardView;
+   view.scale = clamp(view.scale * (event.deltaY < 0 ? 1.08 : 0.92), 1, 3);
+   paint();
+ }, { passive: false });
 document.querySelector("#fit-ref").addEventListener("click", () => { refView = { scale: 1, x: 0.5, y: 0.5 }; paint(); });
 document.querySelector("#ref-show").addEventListener("change", (event) => { refVisible = event.target.checked; paint(); });
 document.querySelector("#ref-opacity").addEventListener("input", (event) => { refOpacity = Number(event.target.value) / 100; paint(); });
@@ -549,88 +851,203 @@ document.querySelector("#layer-down").addEventListener("click", () => moveLayer(
    renderLogos();
  }
 
-function readFile(file) {
+ function readFile(file) {
+   return new Promise((resolve, reject) => {
+     const image = new Image();
+     image.onload = () => resolve(image);
+     image.onerror = () => reject(new Error("image"));
+     image.src = URL.createObjectURL(file);
+   });
+ }
+function fileToData(file) {
   return new Promise((resolve) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.src = URL.createObjectURL(file);
-  });
-}
-document.querySelector("#photo").addEventListener("change", async (event) => {
-  const file = event.target.files?.[0];
-  if (!file) return;
-  cardImage = await readFile(file);
-  cardView = { scale: 1, x: 0.5, y: 0.5 };
-  document.querySelector("#card-scale").value = 100;
-  paint();
-  syncLogoAvailability();
-});
-document.querySelector("#pick-empty").addEventListener("click", () => document.querySelector("#photo").click());
-document.querySelector("#ref-file").addEventListener("change", async (event) => {
-  const file = event.target.files?.[0];
-  if (!file) return;
-  refImage = await readFile(file);
-  refView = { scale: 1, x: 0.5, y: 0.5 };
-  refVisible = true;
-  paint();
-});
-document.querySelector("#bank-picker").addEventListener("change", renderLibrary);
-document.querySelector("#logo-file").addEventListener("change", (event) => {
-  [...event.target.files].forEach((file) => addLogo({ name: file.name.replace(/\.[^.]+$/, ""), src: URL.createObjectURL(file), width: 150 }));
-});
-
-["#photo", "#ref-file", "#logo-file"].forEach((selector) => {
-  const input = document.querySelector(selector);
-  const zone = input.parentElement;
-  ["dragover", "dragenter"].forEach((type) => zone.addEventListener(type, (event) => { event.preventDefault(); zone.style.borderColor = "var(--teal)"; }));
-  zone.addEventListener("dragleave", () => { zone.style.borderColor = ""; });
-  zone.addEventListener("drop", (event) => {
-    event.preventDefault();
-    zone.style.borderColor = "";
-    if (input.disabled) return;
-    input.files = event.dataTransfer.files;
-    input.dispatchEvent(new Event("change"));
-  });
-});
-
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+     reader.readAsDataURL(file);
+   });
+ }
+ document.querySelector("#photo").addEventListener("change", async (event) => {
+   const file = event.target.files?.[0];
+   if (!file) return;
+   if (items.length && !window.confirm(`${copy().replaceTitle}\n${copy().replaceText}`)) { event.target.value = ""; return; }
+   try {
+     uploadData = await fileToData(file);
+     cardImage = await readFile(file);
+   } catch {
+     showToast(copy().logoNeed);
+     return;
+   }
+   activeSave = null;
+   cardSource = "upload";
+   cardView = { scale: 1, x: 0.5, y: 0.5 };
+   items = [];
+   selected = null;
+   paint();
+   renderLogos();
+   renderFaces();
+   renderSaves();
+   syncLogoAvailability();
+ });
+ document.querySelector("#pick-empty").addEventListener("click", () => document.querySelector("#photo").click());
+ document.querySelector("#pick-card").addEventListener("click", () => document.querySelector("#photo").click());
+ const stage = document.querySelector(".stage");
+ ["dragover", "dragenter"].forEach((type) => stage.addEventListener(type, (event) => { event.preventDefault(); stage.classList.add("hot"); }));
+ stage.addEventListener("dragleave", () => stage.classList.remove("hot"));
+ stage.addEventListener("drop", (event) => {
+   event.preventDefault();
+   stage.classList.remove("hot");
+   const file = event.dataTransfer.files?.[0];
+   if (!file) return;
+   const input = document.querySelector("#photo");
+   const transfer = new DataTransfer();
+   transfer.items.add(file);
+   input.files = transfer.files;
+   input.dispatchEvent(new Event("change"));
+ });
+ document.querySelector("#ref-file").addEventListener("change", async (event) => {
+   const file = event.target.files?.[0];
+   if (!file) return;
+   try { refImage = await readFile(file); }
+   catch { showToast(copy().logoNeed); return; }
+   refView = { scale: 1, x: 0.5, y: 0.5 };
+   refVisible = true;
+   paint();
+ });
+ document.querySelector("#bank-picker").addEventListener("change", renderLibrary);
+ document.querySelector("#logo-file").addEventListener("change", async (event) => {
+   const files = [...event.target.files];
+   for (const file of files) {
+     addLogo({ name: file.name.replace(/\.[^.]+$/, ""), src: await fileToData(file), width: 150 });
+   }
+ });
+ ["#ref-file", "#logo-file"].forEach((selector) => {
+   const input = document.querySelector(selector);
+   const zone = input.parentElement;
+   ["dragover", "dragenter"].forEach((type) => zone.addEventListener(type, (event) => { event.preventDefault(); zone.style.borderColor = "var(--teal)"; }));
+   zone.addEventListener("dragleave", () => { zone.style.borderColor = ""; });
+   zone.addEventListener("drop", (event) => {
+     event.preventDefault();
+     zone.style.borderColor = "";
+     if (input.disabled) return;
+     input.files = event.dataTransfer.files;
+     input.dispatchEvent(new Event("change"));
+   });
+ });
 document.querySelector("#clear").addEventListener("click", () => {
-  cardImage = null; refImage = null; items = []; selected = null;
-  cardView = { scale: 1, x: 0.5, y: 0.5 }; refView = { scale: 1, x: 0.5, y: 0.5 };
-  paint(); renderLogos(); syncLogoAvailability();
+  refImage = null;
+  refView = { scale: 1, x: 0.5, y: 0.5 };
+  paint();
 });
-
-document.querySelector("#export").addEventListener("click", async () => {
+async function renderCardBlob(image, view, logoItems, useRound) {
   const out = document.createElement("canvas");
-  out.width = CARD_W; out.height = CARD_H;
+  out.width = CARD_W;
+  out.height = CARD_H;
   const context = out.getContext("2d");
-  if (rounded) {
+  if (useRound) {
     roundedPath(context, CARD_W, CARD_H, RADIUS);
     context.clip();
   }
-  context.drawImage(base, 0, 0);
-  for (const item of items) {
-    let image;
-    try { image = await loadImage(item.src); }
+  paintImage(context, image, view);
+  const scale = CARD_W / Math.max(card.clientWidth, 1);
+  for (const item of logoItems) {
+    let logo;
+    try { logo = await loadImage(item.src); }
     catch { continue; }
-    const width = (item.width / card.clientWidth) * CARD_W;
-    const height = width * (image.naturalHeight || image.height) / (image.naturalWidth || image.width);
+    const width = item.width * scale;
+    const height = width * (logo.naturalHeight || logo.height) / (logo.naturalWidth || logo.width);
     context.save();
     context.translate((item.x / 100) * CARD_W, (item.y / 100) * CARD_H);
     context.rotate((item.rotate * Math.PI) / 180);
     context.globalAlpha = item.opacity;
-    context.drawImage(image, -width / 2, -height / 2, width, height);
+    context.drawImage(logo, -width / 2, -height / 2, width, height);
     context.restore();
   }
-  const blob = await new Promise((resolve) => out.toBlob(resolve, "image/png"));
-  if (!blob) return;
+  return new Promise((resolve) => out.toBlob(resolve, "image/png"));
+}
+function downloadBlob(blob, name) {
+   if (!blob) { showToast(copy().exportFailed); return; }
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
-  link.download = "card-face.png";
+  link.download = name;
   link.href = url;
   link.click();
-  if (!("download" in HTMLAnchorElement.prototype)) location.href = url;
   setTimeout(() => URL.revokeObjectURL(url), 60000);
-});
+}
+function showToast(message) {
+  const toast = document.querySelector("#toast");
+  toast.textContent = message;
+  toast.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toast.hidden = true; }, 2200);
+}
+ document.querySelector("#export").addEventListener("click", () => {
+   if (!cardImage) { remindCardFirst(); return; }
+   exportCard();
+ });
+function exportCard() {
+  renderCardBlob(cardImage, cardView, items, rounded).then((blob) => downloadBlob(blob, "card-face.png"));
+}
+ async function saveCard() {
+   if (!cardImage) { remindCardFirst(); return; }
+   const previous = activeSave ? saves.find((item) => item.id === activeSave) : null;
+   const seq = previous?.seq || saveSeq + 1;
+   const entry = {
+     id: previous?.id || `save-${Date.now()}`,
+     seq,
+     name: previous?.name || `${copy().cardName}${seq}`,
+     thumb: "",
+     image: String(cardSource || "").startsWith("face:") ? "" : (uploadData || ""),
+     state: snapshot(),
+   };
+   const index = saves.findIndex((item) => item.id === entry.id);
+   if (index >= 0) saves[index] = entry;
+   else saves.push(entry);
+   activeSave = entry.id;
+   renderSaves();
+   let kept = false;
+   if (!persistSaves() && entry.image) {
+     entry.image = "";
+     kept = persistSaves();
+   } else kept = true;
+   if (!kept) {
+     if (!previous) saves = saves.filter((item) => item.id !== entry.id);
+     else saves[index] = previous;
+     activeSave = previous?.id || null;
+     renderSaves();
+     showToast(copy().saveFailed);
+     return;
+   }
+   if (!previous) saveSeq = seq;
+   showToast(copy()[entry.image || String(cardSource || "").startsWith("face:") ? "saved" : "saveKept"]);
+   entry.thumb = await cardThumb();
+   renderSaves();
+   persistSaves();
+ }
+document.querySelector("#save-card").addEventListener("click", saveCard);
+ async function exportAll() {
+   if (!saves.length) { showToast(copy().nothingSaved); return; }
+   showToast(copy().exportDone);
+   let count = 0;
+   for (const entry of [...saves]) {
+     try {
+       const state = entry.state || {};
+       const source = String(state.cardSource || "");
+       let image = null;
+       if (source.startsWith("face:")) image = await faceImage(source.slice(5));
+       else if (entry.image) { try { image = await loadImage(entry.image); } catch { image = null; } }
+       if (!image && entry.thumb) { try { image = await loadImage(entry.thumb); } catch { image = null; } }
+       if (!image) continue;
+       const view = state.cardView || { scale: 1, x: 0.5, y: 0.5 };
+       const blob = await renderCardBlob(image, view, state.items || [], state.rounded !== false);
+       if (!blob) continue;
+       count += 1;
+       downloadBlob(blob, `card-${String(count).padStart(2, "0")}.png`);
+       await new Promise((resolve) => setTimeout(resolve, 800));
+     } catch { continue; }
+   }
+   if (!count) showToast(copy().exportFailed);
+ }
+ document.querySelector("#export-all").addEventListener("click", exportAll);
 
 function loadImage(src) {
   if (imageCache[src]) return Promise.resolve(imageCache[src]);
@@ -646,7 +1063,7 @@ function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
 let toastTimer = 0;
 function remindCardFirst() {
   const toast = document.querySelector("#toast");
-  const drop = document.querySelector("#photo").parentElement;
+   const drop = document.querySelector(".stage");
   toast.textContent = copy().logoNeed;
   toast.hidden = false;
   drop.classList.remove("pulse");
@@ -689,6 +1106,8 @@ function applyLanguage() {
   marks = Object.fromEntries(groups.flatMap((group) => group.marks.map((mark) => [mark.id, mark])));
   renderTabs();
   renderLibrary();
+  renderFaces();
+   renderSaves();
   renderLogos();
   syncLogoAvailability();
 }

@@ -6,7 +6,7 @@
   <meta http-equiv="Cache-Control" content="no-cache" />
   <title>卡面设计生成器</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-   <link rel="stylesheet" href="styles.css?v=20260924n" />
+  <link rel="stylesheet" href="styles.css?v=20260924q" />
 </head>
 <body>
   <header class="bar">
@@ -28,7 +28,7 @@
 
   <div class="layout">
     <section class="preview">
-      <div class="head"><h2 data-i18n="preview">卡面预览</h2><button type="button" id="export" class="export" data-i18n="export">导出 PNG</button></div>
+      <div class="head"><h2 data-i18n="preview">卡面预览</h2><div class="head-actions"><button type="button" id="save-card" class="export" data-i18n="save">保存</button><button type="button" id="export" class="export" data-i18n="export">导出 PNG</button></div></div>
       <div class="stage">
          <div class="card round" id="card">
           <canvas id="base" width="1536" height="969"></canvas>
@@ -56,8 +56,14 @@
          </div>
         <button type="button" id="clear" class="quiet" data-i18n="clear">清空</button>
       </div>
+       <section class="face-strip">
+         <div class="head"><h2 data-i18n="cardImage">卡面图片</h2><button type="button" class="pick" id="pick-card" data-i18n="choose">选择图片</button></div>
+         <div class="library faces" id="faces"></div>
+         <input id="photo" type="file" accept="image/*,.svg" hidden />
+         <p class="note" data-i18n="cardNote">图片会等比缩放并居中填满卡面，超出部分自动裁掉。</p>
+       </section>
       <section class="logo-panel">
-         <div class="head"><h2>Logo <span id="logo-count">0</span></h2><a class="request" id="request-logo" data-i18n="requestLogo" href="https://github.com/youmikk/card-face/issues/new" target="_blank" rel="noreferrer">申请添加 logo</a></div>
+         <div class="head"><h2>Logo <span id="logo-count">0</span></h2><a class="request" id="request-logo" data-i18n="requestLogo" href="https://github.com/youmikk/card-face/issues/new" target="_blank" rel="noreferrer">提交 logo</a></div>
         <label class="drop compact" id="logo-drop">
           <strong data-i18n="uploadLogo">上传自己的 logo</strong>
           <small id="logo-hint" data-i18n="logoNeed">请先上传卡面图片</small>
@@ -71,19 +77,11 @@
     </section>
 
     <aside>
-      <section>
-        <div class="head"><h2 data-i18n="cardImage">卡面图片</h2><span>1.586 : 1</span></div>
-        <label class="drop">
-          <strong data-i18n="dropCard">拖拽图片到此处，或点击选择</strong>
-          <small>JPG、PNG、WebP、SVG</small>
-          <input id="photo" type="file" accept="image/*,.svg" />
-        </label>
-        <div class="pair">
-          <button type="button" id="fit-card" data-i18n="refit">重新匹配</button>
-          <label><span data-i18n="zoom">缩放</span> <input id="card-scale" type="range" min="100" max="300" value="100" /></label>
-        </div>
-        <p class="note" data-i18n="cardNote">图片会等比缩放并居中填满卡面，超出部分自动裁掉。</p>
-      </section>
+       <section class="saves">
+         <div class="head"><h2 data-i18n="savedCards">保存区</h2><button type="button" id="export-all" class="pick" data-i18n="exportAll">全部导出</button></div>
+         <div class="library faces" id="saves"></div>
+         <p class="note" data-i18n="saveNote">点保存记下当前卡面。点缩略图可以再打开修改。只存在这台浏览器里。</p>
+       </section>
 
       <section>
         <div class="head"><h2 data-i18n="reference">参考图</h2><span>1.586 : 1</span></div>
@@ -144,5 +142,6 @@
       </figure>
     </div>
   </div>
-   <script src="app.js?v=20260924m"></script>
+  <script src="app.js?v=20260924q"></script>
+ </body>
 </html>
