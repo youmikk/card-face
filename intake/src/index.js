@@ -289,136 +289,62 @@ const PAGE = `<!doctype html>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>审核</title>
-<style>
-  body { margin: 0; font: 15px/1.5 sans-serif; background: #f4f7fb; color: #172033; }
-  main { max-width: 920px; margin: 0 auto; padding: 24px; }
-  article { display: grid; grid-template-columns: 180px 1fr; gap: 16px; background: #fff; border-radius: 16px; padding: 16px; margin: 12px 0; }
-  img, svg { width: 180px; height: 114px; object-fit: contain; background: #eef2f6; border-radius: 10px; }
-  label { display: grid; gap: 4px; margin: 8px 0; }
-  input, select { min-height: 36px; }
-  .row { display: flex; gap: 8px; }
-  button { min-height: 36px; border: 0; border-radius: 999px; padding: 0 14px; cursor: pointer; }
-  .ok { background: #16324f; color: #fff; }
-  .no { background: #efe7e4; }
-  @media (max-width: 700px) { article { grid-template-columns: 1fr; } }
-</style>
+ <style>
+   body { margin: 0; background: #f4f6f8; color: #1d2733; font: 14px/1.5 "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+   header { position: sticky; top: 0; z-index: 2; display: flex; align-items: baseline; gap: 12px; padding: 16px 22px; background: rgba(255,255,255,.94); border-bottom: 1px solid #e4e8ee; }
+   header strong { font-size: 18px; }
+   header span, .muted { color: #667385; }
+   main { width: min(1080px, calc(100% - 28px)); margin: 22px auto 48px; display: grid; gap: 16px; }
+   section { padding: 16px; border: 1px solid #e4e8ee; border-radius: 18px; background: #fff; box-shadow: 0 10px 30px rgba(27,43,64,.06); }
+   h2 { margin: 0 0 12px; font-size: 16px; }
+   .cats, .add, .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+   .cat { display: flex; align-items: center; gap: 4px; padding: 4px 4px 4px 12px; border: 1px solid #e4e8ee; border-radius: 999px; background: #f8fafc; }
+   .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 14px; }
+   .card { overflow: hidden; border: 1px solid #e4e8ee; border-radius: 14px; background: #f8fafc; }
+   .card img { display: block; width: 100%; height: 132px; object-fit: cover; background: #eef2f6; }
+   .card div { display: grid; gap: 8px; padding: 10px; }
+   article { display: grid; grid-template-columns: 220px 1fr; gap: 16px; padding: 14px; margin: 12px 0; border: 1px solid #e4e8ee; border-radius: 16px; background: #f8fafc; }
+   article img { width: 100%; height: 138px; object-fit: contain; border-radius: 12px; background: #eef2f6; }
+   label { display: grid; gap: 4px; margin: 8px 0; color: #667385; }
+   input, select { min-height: 38px; border: 1px solid #e4e8ee; border-radius: 10px; padding: 0 10px; background: #fff; color: #1d2733; }
+   .add { margin-top: 12px; }
+   .add input { flex: 1; min-width: 160px; }
+   button { min-height: 34px; border: 0; border-radius: 10px; padding: 0 12px; background: #eef2f6; color: #1d2733; cursor: pointer; }
+   button:disabled { opacity: .4; cursor: default; }
+   .ok { background: #1b2b40; color: #fff; }
+   .no { background: #fff; color: #c44747; box-shadow: inset 0 0 0 1px #f0d0d0; }
+   .empty { margin: 8px 0 0; }
+   @media (max-width: 700px) { article { grid-template-columns: 1fr; } }
+ </style>
+ <header><strong>卡面审核</strong><span>管理分类和已经出现在网页上的卡面</span></header>
  <main>
-   <h1>待审核</h1>
    <section id="catalog"></section>
-   <div id="list"></div>
+   <section><h2>待处理</h2><div id="list"></div></section>
  </main>
-<script>
+ <script>
  let token = "";
- const faces = [["solid","纯色"],["bank","银行"],["transit","交通"],["other","其他"]];
+ let faceCats = [["solid","纯色"],["bank","银行"],["transit","交通"],["other","其他"]];
  const logos = [["banks","银行"],["transit","交通联合"],["official","官方"],["payment","支付"]];
  const previews = [];
- function auth() {
-   return { Authorization: "Bearer " + token };
- }
- async function load() {
-   previews.forEach((url) => URL.revokeObjectURL(url));
-   previews.length = 0;
-   const state = await fetch("/review/password").then((response) => response.json());
-   if (!state.ready) {
-     const created = (prompt("设置审核密码，设置后不能在页面里修改") || "").trim();
-     if (created.length < 4) {
-       document.querySelector("#list").textContent = "请先设置至少 4 位的审核密码";
-       return;
-     }
-     const saved = await fetch("/review/password", {
-       method: "POST",
-       headers: { "Content-Type": "application/json" },
-       body: JSON.stringify({ password: created }),
-     });
-     if (!saved.ok) {
-       document.querySelector("#list").textContent = "审核密码设置失败";
-       return;
-     }
-     token = created;
-     sessionStorage.setItem("review-token", token);
-   }
-   token = sessionStorage.getItem("review-token") || "";
-   let response = token ? await fetch("/review/items", { headers: auth() }) : { ok: false, status: 401 };
-   while (response.status === 401) {
-     sessionStorage.removeItem("review-token");
-     token = (prompt("审核密码") || "").trim();
-     if (!token) {
-       document.querySelector("#list").textContent = "需要审核密码";
-       return;
-     }
-     sessionStorage.setItem("review-token", token);
-     response = await fetch("/review/items", { headers: auth() });
-   }
-   if (!response.ok) {
-     document.querySelector("#list").textContent = "审核列表加载失败";
-     return;
-   }
-  const data = await response.json();
-  const list = document.querySelector("#list");
-  list.replaceChildren();
-  for (const item of data.items) {
-    const card = document.createElement("article");
-    const preview = document.createElement("img");
-    preview.alt = item.name;
-    const file = await fetch("/review/file/" + item.id, { headers: auth() });
-    if (file.ok) {
-      const url = URL.createObjectURL(await file.blob());
-      previews.push(url);
-      preview.src = url;
-    }
-    const form = document.createElement("form");
-    const name = field("名称", "text", item.name);
-    const cats = item.kind === "face" ? faces : logos;
-    const category = select("分类", cats, item.category);
-    const bank = field("银行编号", "text", item.bank || "");
-    const custom = field("自定义分类", "text", item.label || "");
-    bank.hidden = !(item.kind === "logo" && category.querySelector("select").value === "banks");
-    custom.hidden = category.querySelector("select").value !== "other";
-    category.querySelector("select").addEventListener("change", (event) => {
-      bank.hidden = !(item.kind === "logo" && event.target.value === "banks");
-      custom.hidden = event.target.value !== "other";
-    });
-    const row = document.createElement("div");
-    row.className = "row";
-    const approve = document.createElement("button");
-    approve.type = "button"; approve.className = "ok"; approve.textContent = item.status === "approved" ? "更新" : "通过";
-    const reject = document.createElement("button");
-    reject.type = "button"; reject.className = "no"; reject.textContent = "拒绝";
-    const send = (action) => fetch("/review/items", {
-      method: "POST", headers: { ...auth(), "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action, id: item.id,
-        name: name.querySelector("input").value,
-        category: category.querySelector("select").value,
-        bank: bank.querySelector("input").value,
-        label: custom.querySelector("input").value,
-      }),
-    }).then(() => load());
-    approve.addEventListener("click", () => send("approve"));
-    reject.addEventListener("click", () => send("reject"));
-    row.append(approve, reject);
-    form.append(name, category, bank, custom, row);
-    card.append(preview, form);
-    list.appendChild(card);
-  }
-  if (!data.items.length) list.textContent = "没有待审核的图片";
- }
+ function auth() { return { Authorization: "Bearer " + token }; }
  async function catalogSend(body) {
-   await fetch("/review/catalog", { method: "POST", headers: { ...auth(), "Content-Type": "application/json" }, body: JSON.stringify(body) });
-   await loadCatalog();
+   const response = await fetch("/review/catalog", { method: "POST", headers: { ...auth(), "Content-Type": "application/json" }, body: JSON.stringify(body) });
+   if (response.ok) await load();
  }
- async function loadCatalog() {
-   const response = await fetch("/review/catalog", { headers: auth() });
+ function drawCatalog(data) {
+   faceCats = data.categories.map((entry) => [entry.id, entry.name]);
    const box = document.querySelector("#catalog");
-   if (!response.ok) { box.textContent = ""; return; }
-   const data = await response.json();
    box.replaceChildren();
    const title = document.createElement("h2");
-   title.textContent = "网页卡面";
+   title.textContent = "卡面分类";
+   const note = document.createElement("p");
+   note.className = "muted";
+   note.textContent = "这里的顺序就是网页上分类标签的顺序。待处理里的卡面分类会一起更新。";
    const cats = document.createElement("div");
+   cats.className = "cats";
    data.categories.forEach((entry, index) => {
      const row = document.createElement("div");
-     row.className = "row";
+     row.className = "cat";
      const name = document.createElement("strong");
      name.textContent = entry.name;
      const up = document.createElement("button");
@@ -428,13 +354,13 @@ const PAGE = `<!doctype html>
      down.type = "button"; down.textContent = "下移"; down.disabled = index === data.categories.length - 1;
      down.addEventListener("click", () => catalogSend({ action: "move-category", id: entry.id, direction: "down" }));
      const remove = document.createElement("button");
-     remove.type = "button"; remove.className = "no"; remove.textContent = "删除分类";
+     remove.type = "button"; remove.className = "no"; remove.textContent = "删除";
      remove.addEventListener("click", () => catalogSend({ action: "remove-category", id: entry.id }));
      row.append(name, up, down, remove);
      cats.append(row);
    });
    const add = document.createElement("form");
-   add.className = "row";
+   add.className = "add";
    const input = document.createElement("input");
    input.placeholder = "新分类名称"; input.maxLength = 16; input.required = true;
    const submit = document.createElement("button");
@@ -442,36 +368,120 @@ const PAGE = `<!doctype html>
    add.append(input, submit);
    add.addEventListener("submit", (event) => { event.preventDefault(); catalogSend({ action: "add-category", name: input.value }); });
    const cards = document.createElement("div");
+   cards.className = "cards";
    data.items.forEach((item) => {
-     const row = document.createElement("div");
-     row.className = "row";
-     const name = document.createElement("span");
+     const card = document.createElement("article");
+     card.className = "card";
+     const preview = document.createElement("img");
+     preview.alt = item.name; preview.src = "/files/" + item.id;
+     const body = document.createElement("div");
+     const name = document.createElement("strong");
      name.textContent = item.name;
      const category = document.createElement("select");
-     data.categories.forEach((entry) => category.append(Object.assign(document.createElement("option"), { value: entry.id, textContent: entry.name })));
-     category.value = data.categories.some((entry) => entry.id === item.category) ? item.category : data.categories[0].id;
+     faceCats.forEach(([id, text]) => category.append(Object.assign(document.createElement("option"), { value: id, textContent: text })));
+     if (faceCats.some(([id]) => id === item.category)) category.value = item.category;
      category.addEventListener("change", () => catalogSend({ action: "move-face", id: item.id, category: category.value }));
      const remove = document.createElement("button");
      remove.type = "button"; remove.className = "no"; remove.textContent = "从网页删除";
      remove.addEventListener("click", () => catalogSend({ action: "hide-face", id: item.id }));
-     row.append(name, category, remove);
-     cards.append(row);
+     body.append(name, category, remove);
+     card.append(preview, body);
+     cards.append(card);
    });
-   if (!data.items.length) cards.textContent = "网页上还没有已通过的卡面";
-   box.append(title, cats, add, cards);
+   if (!data.items.length) {
+     const empty = document.createElement("p");
+     empty.className = "muted empty";
+     empty.textContent = "还没有已通过并显示在网页上的卡面。";
+     cards.append(empty);
+   }
+   box.append(title, note, cats, add, cards);
  }
-function field(label, type, value) {
-  const node = document.createElement("label");
-  node.append(label, Object.assign(document.createElement("input"), { type, value }));
-  return node;
-}
-function select(label, options, value) {
-  const node = document.createElement("label");
-  const box = document.createElement("select");
-  options.forEach(([id, text]) => box.append(Object.assign(document.createElement("option"), { value: id, textContent: text })));
-  box.value = value;
-  node.append(label, box);
-  return node;
-}
- load().then(loadCatalog);
-</script>`;
+ async function load() {
+   previews.forEach((url) => URL.revokeObjectURL(url));
+   previews.length = 0;
+   const state = await fetch("/review/password").then((response) => response.json());
+   if (!state.ready) {
+     const created = (prompt("设置审核密码，设置后不能在页面里修改") || "").trim();
+     if (created.length < 4) { document.querySelector("#list").textContent = "请先设置至少 4 位的审核密码"; return; }
+     const saved = await fetch("/review/password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: created }) });
+     if (!saved.ok) { document.querySelector("#list").textContent = "审核密码设置失败"; return; }
+     token = created;
+     sessionStorage.setItem("review-token", token);
+   }
+   token = sessionStorage.getItem("review-token") || "";
+   let response = token ? await fetch("/review/items", { headers: auth() }) : { ok: false, status: 401 };
+   while (response.status === 401) {
+     sessionStorage.removeItem("review-token");
+     token = (prompt("审核密码") || "").trim();
+     if (!token) { document.querySelector("#list").textContent = "需要审核密码"; return; }
+     sessionStorage.setItem("review-token", token);
+     response = await fetch("/review/items", { headers: auth() });
+   }
+   if (!response.ok) { document.querySelector("#list").textContent = "审核列表加载失败"; return; }
+   const catalog = await fetch("/review/catalog", { headers: auth() });
+   if (catalog.ok) drawCatalog(await catalog.json());
+   const data = await response.json();
+   const list = document.querySelector("#list");
+   list.replaceChildren();
+   for (const item of data.items) {
+     const card = document.createElement("article");
+     const preview = document.createElement("img");
+     preview.alt = item.name;
+     const file = await fetch("/review/file/" + item.id, { headers: auth() });
+     if (file.ok) {
+       const url = URL.createObjectURL(await file.blob());
+       previews.push(url);
+       preview.src = url;
+     }
+     const form = document.createElement("form");
+     const name = field("名称", "text", item.name);
+     const options = item.kind === "face" ? faceCats.slice() : logos.slice();
+     if (!options.some(([id]) => id === item.category)) options.push([item.category, item.category]);
+     const category = select("分类", options, item.category);
+     const bank = field("银行编号", "text", item.bank || "");
+     const custom = field("自定义分类", "text", item.label || "");
+     bank.hidden = !(item.kind === "logo" && category.querySelector("select").value === "banks");
+     custom.hidden = category.querySelector("select").value !== "other";
+     category.querySelector("select").addEventListener("change", (event) => {
+       bank.hidden = !(item.kind === "logo" && event.target.value === "banks");
+       custom.hidden = event.target.value !== "other";
+     });
+     const row = document.createElement("div");
+     row.className = "row";
+     const approve = document.createElement("button");
+     approve.type = "button"; approve.className = "ok"; approve.textContent = item.status === "approved" ? "更新" : "通过";
+     const reject = document.createElement("button");
+     reject.type = "button"; reject.className = "no"; reject.textContent = "拒绝";
+     const send = (action) => fetch("/review/items", {
+       method: "POST", headers: { ...auth(), "Content-Type": "application/json" },
+       body: JSON.stringify({ action, id: item.id, name: name.querySelector("input").value, category: category.querySelector("select").value, bank: bank.querySelector("input").value, label: custom.querySelector("input").value }),
+     }).then(() => load());
+     approve.addEventListener("click", () => send("approve"));
+     reject.addEventListener("click", () => send("reject"));
+     row.append(approve, reject);
+     form.append(name, category, bank, custom, row);
+     card.append(preview, form);
+     list.appendChild(card);
+   }
+   if (!data.items.length) {
+     const empty = document.createElement("p");
+     empty.className = "muted empty";
+     empty.textContent = "没有待处理的图片。";
+     list.append(empty);
+   }
+ }
+ function field(label, type, value) {
+   const node = document.createElement("label");
+   node.append(label, Object.assign(document.createElement("input"), { type, value }));
+   return node;
+ }
+ function select(label, options, value) {
+   const node = document.createElement("label");
+   const box = document.createElement("select");
+   options.forEach(([id, text]) => box.append(Object.assign(document.createElement("option"), { value: id, textContent: text })));
+   box.value = value;
+   node.append(label, box);
+   return node;
+ }
+ load();
+ </script>`;
