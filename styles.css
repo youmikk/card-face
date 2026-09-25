@@ -154,7 +154,8 @@ h2 { margin: 0; font-size: 15px; }
   .card { width: min(100%, 860px, calc(50vh * 1.585)); }
 }
  .card.round canvas, .card.round .empty { border-radius: 3.7%; }
- .card.round #base, .card.round .empty { box-shadow: 0 12px 30px rgba(27, 43, 64, 0.12); }
+ /* 阴影是卡面框的可见边界，两种圆角模式都要保留；只有圆角跟着「3.18 mm 圆角」走 */
+ .card #base, .card .empty { box-shadow: 0 12px 30px rgba(27, 43, 64, 0.12); }
  canvas, #layers, .empty { position: absolute; inset: 0; width: 100%; height: 100%; }
  #reference { pointer-events: none; }
  .toast {
