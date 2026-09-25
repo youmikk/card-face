@@ -18,13 +18,13 @@
 | 路径 | 说明 |
 | --- | --- |
 | `GET /manifest` | 公开清单（已通过条目 + 分类），读派生对象 `manifest.json`，带 ETag |
-| `POST /submit` | 提交素材（限速 20 次/小时/IP，待审上限 300 条，银行编号必须在白名单里） |
+| `POST /submit` | 提交素材（限速 20 次/小时/IP，待审上限 300 条；「银行」角色的分类必须填银行名称，名称不限名单） |
 | `GET /files/<id>` | 公开读取已通过的文件（带 ETag，30 天 stale-while-revalidate） |
 | `GET /review` | 审核页面（需要口令） |
-| `GET /review/items` | 待审列表：`?q=` 搜索、`?limit=&offset=` 分页，返回 `total` 与 `banks` |
+| `GET /review/items` | 待审列表：`?q=` 搜索、`?limit=&offset=` 分页，返回 `total`、`pendingByKind` 与 `bankNames` |
 | `POST /review/items` | `approve` / `reject`（拒绝会删掉文件，记录保留 30 天） |
-| `GET /review/catalog` | 分类、每类计数（按「类型:分类」给键）、已通过/已隐藏按类型计数、未归类条目数、隐藏列表、银行白名单；`?kind=&category=&q=&limit=&offset=`，`category=__orphan__` 查看分类已删除的条目，带 `q` 时跨分类跨类型搜索 |
-| `POST /review/catalog` | `add-category` / `rename-category` / `set-role` / `move-category` / `remove-category`（软删除）/ `update-item`（详细编辑）/ `hide-item` / `restore-item` / `delete-item`（彻底删除）/ `fix-kinds`（按分类把历史条目的 kind 写回记录） |
+| `GET /review/catalog` | 分类、每类计数（按「类型:分类」给键）、已通过/已隐藏按类型计数、未归类条目数、隐藏列表、银行名称建议（`bankNames`）；`?kind=&category=&q=&limit=&offset=`，`category=__orphan__` 查看分类已删除的条目，带 `q` 时跨分类跨类型搜索 |
+| `POST /review/catalog` | `add-category` / `rename-category` / `set-role` / `move-category` / `remove-category`（软删除）/ `update-item`（详细编辑）/ `hide-item` / `restore-item` / `delete-item`（彻底删除）/ `fix-kinds`（按分类把历史条目的 kind 写回记录）/ `restore-defaults`（补回被删掉的内置分类） |
 | `GET/POST/DELETE /review/password` | 口令状态 / 轮换（需当前口令）/ 清除 R2 哈希回到 env 控制 |
 | `GET /review/file/<id>` | 预览待审、已通过或已隐藏的文件（需要口令） |
 
@@ -33,7 +33,7 @@
 - 口令只来自 `REVIEW_PASSWORD`；比较前双方都做 SHA-256，再做定长时间比较，并按 IP 限制失败次数（10 次 / 10 分钟）。
 - 审核页右上角「修改口令」可随时轮换，轮换要求先通过当前口令认证；R2 里只写 `sha256:<hash>`，从不写明文。`DELETE /review/password` 可让口令回到 env 控制。
 - 上传内容按魔术字节判定真实类型（PNG / JPEG / WebP / SVG），不信任客户端声明的 MIME。SVG 会拒绝 `<script>`、`on*=`、`javascript:`、`foreignObject`、外链 `href`/`url()` 等构造（命中即拒绝，不做改写）。位图限制单边 12000 px、总量 4000 万像素以内。
-- **银行编号按白名单校验**（`BANK_IDS`，与 `app.js` 的 `bankIndex` 同步）：格式合法但不存在的编号（例如 `ICBX`）会被拒绝，避免"审核通过后在站点上永远显示不出来"；历史上已经存在的编号仍可继续编辑。
+- **银行名称不再限制在名单内**：内置 154 家（`intake/src/banks.js`，与 `app.js` 的 `bankIndex` 同步）按 id 存，站点上挂到对应银行（用内置图标）；**名单外的名称原样存下来，站点上作为新银行出现，图标就是上传的这张图**。只校验：不能为空、「银行」角色下必须有值、名称里不能有 `/ \ ..`。
 - 提交时记录 `width/height/size/hash`（内容指纹）与 `reviewedAt`；审核台会显示这些元数据，公开清单里的初始 logo 宽度按真实高宽比换算（不再是固定 132）。
 - `/files/*` 与 `/review/file/*` 带 `X-Content-Type-Options: nosniff`、`Referrer-Policy: no-referrer`、`Content-Security-Policy: … sandbox` 和 `ETag`（配合 `If-None-Match` 返回 304）。审核页自身使用 nonce + CSP，不加载任何外部资源。
 - `records.json` / `catalog.json` 用 R2 条件写（ETag）做乐观锁，并发提交不会互相覆盖；运行时缺少 `onlyIf` 时自动降级为普通写入并打 `console.warn`。
@@ -56,8 +56,8 @@
 
 打开 `https://<worker 地址>/review`，输入口令。每条素材都是一张可编辑卡片：
 
-- **详细编辑**：改名称、改分类（换分组）、改银行编号（下拉）、改备注。待审条目点「通过」时一并生效；已通过 / 已隐藏条目点「保存修改」。
-- **搜索**：顶部搜索框按 名称 / 备注 / 银行编号 / ID 过滤（服务端过滤，300ms 防抖）。
+- **详细编辑**：改名称、改分类（换分组）、改银行名称（可搜索内置名单，也可以自己填）、改备注。待审条目点「通过」时一并生效；已通过 / 已隐藏条目点「保存修改」。
+- **搜索**：顶部搜索框按 名称 / 备注 / 银行名称 / ID 过滤（服务端过滤，300ms 防抖）。
 - **元数据**：每张卡片显示提交时间、审核时间、像素尺寸、文件大小、类型、内容指纹前 10 位、当前状态。
 - **三种移除**：`隐藏`（软删除，30 天内可「恢复」）、`拒绝并删除文件`（待审专用，文件立即删、记录留 30 天）、`彻底删除`（文件与记录一起移除，不可恢复，需二次确认）。
 - **分类管理**：改名、上/下移、设置角色（普通 / 银行 / 其他）、隐藏整个分类（其中条目转为隐藏，可逐个恢复）；分类行显示条目数量。
@@ -67,13 +67,13 @@
 
 ## 新增银行后要做什么
 
-`BANK_IDS` 是 `app.js` 里 `bankIndex` 的快照（154 家）。新增银行后请重新生成并粘回 `intake/src/index.js`：
+`intake/src/banks.js` 是 `app.js` 里 `bankIndex` 的快照（154 家，id + 中文名）。站点新增银行后重新生成它：
 
 ```sh
-node -e 'const fs=require("node:fs");const src=fs.readFileSync("app.js","utf8");const line=src.split(/\r?\n/).find(l=>l.trim().startsWith("const bankIndex"));const ids=[...new Set(JSON.parse(line.slice(line.indexOf("["),line.lastIndexOf("]")+1)).map(b=>b.id))].sort();console.log(JSON.stringify(ids))'
+node -e 'const fs=require("node:fs");const src=fs.readFileSync("app.js","utf8");const banks=JSON.parse(/const bankIndex = (\[[\s\S]*?\]);/.exec(src)[1]);const rows=banks.map(b=>`  ["${b.id}", "${b.name}"],`).join("\n");fs.writeFileSync("intake/src/banks.js",`/**\n * 站点内置银行名单（id + 中文名），与 app.js 的 bankIndex 同步。\n * 新增银行后重新生成，命令见 intake/README.md。\n */\nexport const BANKS = [\n${rows}\n];\n`);console.log("已写入", banks.length, "家")'
 ```
 
-否则审核页的银行下拉里选不到新银行（服务端也会拒绝提交）。
+不重新生成也能用：审核台和提交表单都按「银行名称」输入，名单外的名称会被当成新银行（挂在它自己的名称下）。但内置银行要挂到站点自带的图标上，就必须在名单里。反过来，名单里的名称写成 id 也能识别（`中国工商银行` 与 `ICBC` 等价）。
 
 ## 从旧版本升级
 
@@ -97,4 +97,4 @@ npm test    # node --test，无外部依赖
 
 `main` 分支已配 GitHub Actions（`.github/workflows/ci.yml`）：每次 push / PR 会自动跑这套测试。
 
-测试覆盖类型判定、SVG 净化、像素上限、口令与限速、并发不丢记录、软删除与恢复、越权访问，以及后台详细编辑、彻底删除、搜索分页、银行白名单、ETag 304、孤儿清扫与每日备份。
+测试覆盖类型判定、SVG 净化、像素上限、口令与限速、并发不丢记录、软删除与恢复、越权访问，以及后台详细编辑、彻底删除、搜索分页、银行名称归一化与自定义银行、ETag 304、孤儿清扫与每日备份。

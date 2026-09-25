@@ -9,7 +9,15 @@ const CARD_W = 1536;
 const CARD_H = 969;
 const RADIUS = Math.round((3.18 / 85.6) * CARD_W);
 
-const INTAKE = "https://review.youmikk.me";
+const INTAKE = (() => {
+  // 本地调试：?intake=http://127.0.0.1:8787 或 localStorage.intakeBase 可改指本地 Worker
+  try {
+    const fromQuery = new URLSearchParams(location.search).get("intake");
+    const override = fromQuery || localStorage.getItem("intakeBase");
+    if (override) return String(override).replace(/\/+$/, "");
+  } catch {}
+  return "https://review.youmikk.me";
+})();
 const INTAKE_FILES = `${INTAKE}/files/`;
 
 /** 只允许站内素材、data:/blob: 与审核服务的图片地址，避免任意字符串进入 src。 */
@@ -109,6 +117,24 @@ uiText.en.clearRef = "Clear reference";
 uiText.en.submitConsent = "I have read and agree to clause 7: submitted images go to the review service and become public once approved";
 uiText.en.submitConsentNeed = "Please tick the clause 7 confirmation first.";
 uiText.en.submitError = { rate: "Too many submissions. Try again later.", big: "The image must be 4 MB or smaller.", size: "The image dimensions are too large.", svg: "That SVG contains unsafe content.", file: "Use a PNG, JPG, WebP, or SVG.", bank: "Choose a valid bank.", quota: "The review queue is full. Try again later.", fields: "Please fill in every field.", form: "The submission was malformed.", server: "Server error. Try again later." };
+uiText.zh.submitError.bank = "请填写银行名称（找不到就自己填一个）。";
+uiText.en.submitError.bank = "Enter a bank name (type a new one if it is not listed).";
+uiText.zh.submitBankHint = "可搜索内置银行，找不到就直接填名称";
+uiText.en.submitBankHint = "Search a bank, or type a new name";
+uiText.zh.submitBankNote = "自己填的名称会作为新银行出现在站点上，图标就用这张图。";
+uiText.en.submitBankNote = "A new name becomes a new bank on the site, using this image as its icon.";
+uiText.zh.submitSubmitting = "提交中…";
+uiText.en.submitSubmitting = "Submitting…";
+uiText.zh.submitNameHint = "留空就用文件名";
+uiText.en.submitNameHint = "Left empty, the file name is used";
+uiText.zh.submitOffline = "连不上审核服务，分类暂时用内置默认值，提交可能会失败。";
+uiText.en.submitOffline = "Cannot reach the review service; showing built-in categories. Submitting may fail.";
+uiText.zh.catTransitLogo = "交通联合";
+uiText.zh.catOfficial = "卡组织素材";
+uiText.zh.catPayment = "支付方式";
+uiText.en.catOfficial = "Card network";
+uiText.en.catTransitLogo = "T-Union";
+uiText.en.catPayment = "Payment";
 let language = localStorage.getItem("card-lang") || "zh";
 const copy = () => dictionaries[language];
 const terms = {
@@ -284,7 +310,16 @@ let faceCategories = [
   { id: "transit", name: "", kind: "face", role: "plain" },
   { id: "other", name: "", kind: "face", role: "other" },
 ];
-let logoCategories = [];
+// logo 分类同样给内置兜底：拿不到 /manifest（离线、本地调试、服务端异常）时也能提交 logo，
+// 服务端一旦给了分类表就会被覆盖成真实分类
+let logoCategories = [
+  { id: "banks", name: "", kind: "logo", role: "bank" },
+  { id: "transit-logo", name: "", kind: "logo", role: "plain" },
+  { id: "official", name: "", kind: "logo", role: "plain" },
+  { id: "payment", name: "", kind: "logo", role: "plain" },
+];
+// 分类表是不是来自审核服务（false = 用的内置兜底，提交时会提示）
+let catalogFromService = false;
 let faceCategory = "solid";
  function renderFaces() {
    const tabs = document.querySelector("#face-cats");
@@ -616,11 +651,31 @@ function renderTabs() {
 
 function bankMarks(bank) {
   const text = copy();
-   return [
-     { id: `bank-${bank.id}-mark`, name: text.groups.bankMark, src: bank.icon, width: 92 },
-     ...(bank.wordmark ? [{ id: `bank-${bank.id}-lockup`, name: text.groups.bankLockup, src: bank.wordmark, width: 180 }] : []),
-     ...(extraBankMarks[bank.id] || []),
-   ];
+  return [
+    // 自定义银行（素材库里新增的）没有内置图标资源，只有上传的那张 logo
+    ...(bank.icon ? [{ id: `bank-${bank.id}-mark`, name: text.groups.bankMark, src: bank.icon, width: 92 }] : []),
+    ...(bank.wordmark ? [{ id: `bank-${bank.id}-lockup`, name: text.groups.bankLockup, src: bank.wordmark, width: 180 }] : []),
+    ...(extraBankMarks[bank.id] || []),
+  ];
+}
+
+/** 素材库里出现的自定义银行（不在内置名单里的），名称取审核后台填的那个。 */
+function customBanks() {
+  const found = new Map();
+  approved.forEach((item) => {
+    if (item.kind !== "logo" || !item.bank) return;
+    if (bankIndex.some((bank) => bank.id === item.bank)) return;
+    // 与 extraBankMarks 同一口径：只有「银行」角色分类里的 logo 才算这家银行的图标，
+    // 否则下拉里会出现一个没有任何图标的空银行项
+    if (categoryRole(categoryEntry(item.category)) !== "bank") return;
+    if (!found.has(item.bank)) found.set(item.bank, { id: item.bank, name: item.bankName || item.bank, custom: true });
+  });
+  return [...found.values()];
+}
+
+/** 银行下拉/输入建议用：内置名单 + 自定义银行。 */
+function allBanks() {
+  return [...bankIndex, ...customBanks()];
 }
 
 function renderLibrary() {
@@ -631,16 +686,21 @@ function renderLibrary() {
   picker.hidden = !banking;
   box.replaceChildren();
   if (banking) {
-    if (select.childElementCount !== bankIndex.length) {
+    const banks = allBanks();
+    const signature = `${banks.length}:${customBanks().length}`;
+    if (select.dataset.banks !== signature) {
+      const kept = select.value; // 重建选项时别把用户选中的银行丢掉
       select.replaceChildren();
-      bankIndex.forEach((bank) => {
+      banks.forEach((bank) => {
         const option = document.createElement("option");
         option.value = bank.id;
         option.textContent = bank.name;
         select.appendChild(option);
       });
+      select.dataset.banks = signature;
+      if (kept && banks.some((bank) => bank.id === kept)) select.value = kept;
     }
-    const bank = bankIndex.find((entry) => entry.id === select.value) || bankIndex[0];
+    const bank = banks.find((entry) => entry.id === select.value) || banks[0];
     bankMarks(bank).forEach((mark) => box.appendChild(logoButton(mark, `${bank.name} · ${mark.name}`)));
     return;
   }
@@ -1338,11 +1398,13 @@ applyLanguage();
 paint();
 renderLogos();
 async function loadApproved() {
+  let serviceLoaded = false;
   try {
     const response = await fetch(`${INTAKE}/manifest`);
-    if (!response.ok) return;
+    if (!response.ok) throw new Error("manifest " + response.status);
     const data = await response.json();
     approved = Array.isArray(data.items) ? data.items : [];
+    serviceLoaded = true;
     if (Array.isArray(data.categories) && data.categories.length) {
       const facesFromCatalog = data.categories.filter((entry) => entry && entry.id && (entry.kind || "face") === "face");
       const logosFromCatalog = data.categories.filter((entry) => entry && entry.id && entry.kind === "logo");
@@ -1351,11 +1413,14 @@ async function loadApproved() {
     }
     if (!faceCategories.some((entry) => entry.id === faceCategory) && faceCategories.length) faceCategory = faceCategories[0].id;
     applyLanguage();
-  } catch {}
+  } catch (error) {
+    console.warn("站点：拿不到审核服务的分类与清单，提交分类暂用内置默认值。", error);
+  }
+  catalogFromService = serviceLoaded;
 }
 function categoryLabel(entry) {
   if (entry.name) return entry.name;
-  const fallback = { solid: "catSolid", bank: "catBank", transit: "catTransit", other: "catOther" };
+  const fallback = { solid: "catSolid", bank: "catBank", transit: "catTransit", other: "catOther", banks: "catBank", "transit-logo": "catTransitLogo", official: "catOfficial", payment: "catPayment" };
   return uiText[language][fallback[entry.id]] || entry.id;
 }
 function submitCategories(kind) {
@@ -1384,34 +1449,67 @@ function submitCategories(kind) {
      category.appendChild(option);
    });
    if ([...category.options].some((option) => option.value === kept)) category.value = kept;
-   const bank = document.querySelector("#submit-bank");
-   if (!bank.childElementCount) {
-     bankIndex.forEach((entry) => {
-       const option = document.createElement("option");
-       option.value = entry.id;
-       option.textContent = entry.name;
-       bank.appendChild(option);
-     });
-   }
+  const bankRow = document.querySelector("#submit-bank-row");
+  const bank = document.querySelector("#submit-bank");
+  const bankNames = document.querySelector("#submit-bank-names");
+  document.querySelector("#submit-name").placeholder = text.submitNameHint;
   const list = kind.value === "face" ? faceCategories : logoCategories;
   const entry = list.find((item) => item.id === category.value) || null;
   const role = categoryRole(entry);
-  document.querySelector("#submit-bank-row").hidden = !(kind.value === "logo" && role === "bank");
+  const banking = kind.value === "logo" && role === "bank";
+  bankRow.hidden = !banking;
+  document.querySelector("#submit-bank-note").hidden = !banking;
+  if (banking) {
+    // 建议列表：内置 154 家 + 素材库里已经有的自定义银行；找不到就直接手填
+    const names = allBanks().map((option) => option.name);
+    bankNames.replaceChildren();
+    names.forEach((name) => bankNames.appendChild(Object.assign(document.createElement("option"), { value: name })));
+    bank.placeholder = text.submitBankHint;
+    document.querySelector("#submit-bank-note").textContent = text.submitBankNote;
+  }
   const custom = document.querySelector("#submit-custom");
   document.querySelector("#submit-custom-row").hidden = role !== "other";
   custom.required = role === "other";
   custom.placeholder = kind.value === "face" ? "例如：银行卡" : "例如：地铁";
   document.querySelector("#submit-note").textContent = kind.value === "face" ? text.submitFaceNote : text.submitLogoNote;
- }
- function openSubmit(kind) {
-   document.querySelector("#submit-kind").value = kind;
-   fillSubmitForm();
-   document.querySelector("#submit-status").hidden = true;
-   document.querySelector("#submit-sheet").hidden = false;
- }
+  // 分类表没从审核服务拿到时，明确说明用的是内置默认值（否则容易以为"只能选这几个"）
+  const status = document.querySelector("#submit-status");
+  const showingOffline = status.dataset.offline === "1";
+  if (catalogFromService) {
+    if (showingOffline) { status.hidden = true; status.textContent = ""; delete status.dataset.offline; }
+  } else if (showingOffline || !status.textContent.trim()) {
+    // 只在状态栏是空的（或本来就是这条提示）时写，别把「已提交 / 具体错误」覆盖掉
+    status.hidden = false;
+    status.textContent = text.submitOffline;
+    status.dataset.offline = "1";
+  }
+}
+/**
+ * 打开提交框时恢复「上次在这个类型下选的分类」，少点几下。
+ * 只在打开弹层 / 切换类型时调用：绝不能挂在分类自己的 change 上，
+ * 否则用户一改分类就被改回上次的值（看起来就是"选别的没用"）。
+ */
+function restoreSavedCategory() {
+  const kind = document.querySelector("#submit-kind");
+  const category = document.querySelector("#submit-category");
+  try {
+    const saved = JSON.parse(localStorage.getItem("card-submit-category") || "{}");
+    if (saved[kind.value] && [...category.options].some((option) => option.value === saved[kind.value])) category.value = saved[kind.value];
+  } catch {}
+}
+function openSubmit(kind) {
+  document.querySelector("#submit-kind").value = kind;
+  const status = document.querySelector("#submit-status");
+  status.hidden = true;
+  status.textContent = "";
+  delete status.dataset.offline;
+  fillSubmitForm();
+  restoreSavedCategory();
+  document.querySelector("#submit-sheet").hidden = false;
+}
  document.querySelector("#request-face").addEventListener("click", () => openSubmit("face"));
  document.querySelector("#request-logo").addEventListener("click", () => openSubmit("logo"));
- document.querySelector("#submit-kind").addEventListener("change", fillSubmitForm);
+document.querySelector("#submit-kind").addEventListener("change", () => { fillSubmitForm(); restoreSavedCategory(); });
  document.querySelector("#submit-category").addEventListener("change", fillSubmitForm);
  document.querySelector("#submit-close").addEventListener("click", () => {
    document.querySelector("#submit-sheet").hidden = true;
@@ -1419,12 +1517,34 @@ function submitCategories(kind) {
  document.querySelector("#submit-sheet").addEventListener("click", (event) => {
    if (event.target.id === "submit-sheet") document.querySelector("#submit-sheet").hidden = true;
  });
+document.querySelector("#submit-category").addEventListener("change", () => {
+  try {
+    const kind = document.querySelector("#submit-kind").value;
+    const saved = JSON.parse(localStorage.getItem("card-submit-category") || "{}");
+    saved[kind] = document.querySelector("#submit-category").value;
+    localStorage.setItem("card-submit-category", JSON.stringify(saved));
+  } catch {}
+});
+document.querySelector("#submit-file").addEventListener("change", () => {
+  const file = document.querySelector("#submit-file").files[0];
+  const note = document.querySelector("#submit-file-note");
+  const nameInput = document.querySelector("#submit-name");
+  note.hidden = !file;
+  if (!file) {
+    note.textContent = "";
+    return;
+  }
+  const size = file.size < 1024 ? `${file.size} B` : file.size < 1024 * 1024 ? `${Math.round(file.size / 1024)} KB` : `${(file.size / 1024 / 1024).toFixed(1)} MB`;
+  note.textContent = `${file.name} · ${size}` + (file.size > 4 * 1024 * 1024 ? ` · ${copy().submitBig}` : "");
+  if (!nameInput.value.trim()) nameInput.value = file.name.replace(/\.[^.]+$/, "").slice(0, 40);
+});
  document.querySelector("#submit-form").addEventListener("submit", async (event) => {
    event.preventDefault();
    const file = document.querySelector("#submit-file").files[0];
    const text = copy();
    const status = document.querySelector("#submit-status");
-   status.hidden = false;
+  status.hidden = false;
+  delete status.dataset.offline; // 这次提交的结果由这里负责，别再被「离线提示」覆盖
    if (!document.querySelector("#submit-category").value) {
      status.textContent = language === "zh" ? "当前没有可提交的分类。" : "No category is available yet.";
      return;
@@ -1446,11 +1566,12 @@ function submitCategories(kind) {
    body.set("name", document.querySelector("#submit-name").value.trim());
    body.set("kind", document.querySelector("#submit-kind").value);
    body.set("category", document.querySelector("#submit-category").value);
-   body.set("bank", document.querySelector("#submit-bank").value);
+  body.set("bank", document.querySelector("#submit-bank").value.trim());
    body.set("label", document.querySelector("#submit-custom").value.trim());
    body.set("file", file);
-   const send = document.querySelector("#submit-send");
-   send.disabled = true;
+  const send = document.querySelector("#submit-send");
+  send.disabled = true;
+  send.textContent = text.submitSubmitting;
   try {
     const response = await fetch(`${INTAKE}/submit`, { method: "POST", body });
     if (!response.ok) {
@@ -1461,11 +1582,15 @@ function submitCategories(kind) {
     status.textContent = text.submitSent;
     document.querySelector("#submit-form").reset();
     document.querySelector("#submit-consent").checked = false;
+    const picked = document.querySelector("#submit-file-note");
+    picked.hidden = true;
+    picked.textContent = "";
     fillSubmitForm();
   } catch {
     status.textContent = text.submitFailed;
   } finally {
     send.disabled = false;
+    applyLanguage();
   }
  });
  loadApproved();

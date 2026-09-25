@@ -307,13 +307,15 @@ test("伪装成 PNG 的 HTML、含脚本的 SVG、超大像素图都被拒绝", 
   assert.equal(records, null, "被拒绝的提交不应写入记录");
 });
 
-test("logo 提交在 bank 角色分类下必须带银行编号", async () => {
+test("logo 在 bank 角色分类下必须填银行名称：空值被拒，名单外的名称可以自由填", async () => {
   const env = makeEnv();
   const file = fileOf(pngBytes(200, 200), "logo.png", "image/png");
   const missing = submitForm({ kind: "logo", category: "banks", ip: "10.1.0.5", file });
   assert.equal((await call(env, "/submit", { method: "POST", ip: "10.1.0.5", form: missing.form })).status, 400);
   const bad = submitForm({ kind: "logo", category: "banks", bank: "../etc", ip: "10.1.0.5", file });
   assert.equal((await (await call(env, "/submit", { method: "POST", ip: "10.1.0.5", form: bad.form })).json()).error, "bank");
+  const custom = submitForm({ kind: "logo", category: "banks", bank: "星展银行", ip: "10.1.0.5", file });
+  assert.equal((await call(env, "/submit", { method: "POST", ip: "10.1.0.5", form: custom.form })).status, 200, "名单外的银行名称可以直接提交");
   const good = submitForm({ kind: "logo", category: "banks", bank: "ICBC", ip: "10.1.0.5", file });
   assert.equal((await call(env, "/submit", { method: "POST", ip: "10.1.0.5", form: good.form })).status, 200);
 });
@@ -539,7 +541,7 @@ test("提交时记录尺寸/大小/指纹，通过后写入审核时间，初始
   assert.equal(manifest.items[0].width, 64, "800×500 按高度 40px 换算宽度应为 64");
 });
 
-test("后台可详细修改名称/分类/银行/备注，且拒绝不在名单里的银行编号", async () => {
+test("后台可详细修改名称/分类/银行/备注，银行名称不再限制在名单内", async () => {
   const env = makeEnv();
   const ip = "11.1.0.1";
   const { item } = await submitRaw(env, { name: "工行 logo", kind: "logo", category: "banks", bank: "ICBC", ip, width: 400, height: 160 });
@@ -550,35 +552,60 @@ test("后台可详细修改名称/分类/银行/备注，且拒绝不在名单�
   const stored = catalog.items.find((entry) => entry.id === item.id);
   assert.equal(stored.name, "工商银行");
   assert.equal(stored.category, "official");
-  assert.equal(stored.bank, "", "改到非银行分类应清空银行编号");
-  const badBank = await call(env, "/review/catalog", { method: "POST", token: PASSWORD, ip, payload: { action: "update-item", id: item.id, category: "banks", bank: "ICBX" } });
-  assert.equal(badBank.status, 400);
-  assert.equal((await badBank.json()).error, "bank");
-  const okBank = await call(env, "/review/catalog", { method: "POST", token: PASSWORD, ip, payload: { action: "update-item", id: item.id, category: "banks", bank: "ICBC" } });
-  assert.equal(okBank.status, 200);
+  assert.equal(stored.bank, "", "改到非银行分类应清空银行");
+  assert.equal(stored.bankName, "");
+
+  const custom = await call(env, "/review/catalog", { method: "POST", token: PASSWORD, ip, payload: { action: "update-item", id: item.id, category: "banks", bank: "星展银行" } });
+  assert.equal(custom.status, 200, "自己填的银行名称应能保存");
   const after = await (await call(env, "/review/catalog?kind=logo&category=banks", { token: PASSWORD, ip })).json();
-  assert.equal(after.items.find((entry) => entry.id === item.id).bank, "ICBC");
+  const entry = after.items.find((row) => row.id === item.id);
+  assert.equal(entry.bank, "星展银行");
+  assert.equal(entry.bankName, "星展银行");
+  assert.equal(entry.bankBuiltin, false);
+  assert.equal(after.bankNames.includes("星展银行"), true, "自定义银行要出现在名称建议里");
+  assert.equal(after.bankNames.includes("中国工商银行"), true, "内置银行的中文名也在建议里");
+
+  const empty = await call(env, "/review/catalog", { method: "POST", token: PASSWORD, ip, payload: { action: "update-item", id: item.id, category: "banks", bank: "" } });
+  assert.equal(empty.status, 400, "银行角色下留空仍要被拒");
+  assert.equal((await empty.json()).error, "bank");
+
+  const back = await call(env, "/review/catalog", { method: "POST", token: PASSWORD, ip, payload: { action: "update-item", id: item.id, category: "banks", bank: "ICBC" } });
+  assert.equal(back.status, 200);
+  const restored = await (await call(env, "/review/catalog?kind=logo&category=banks", { token: PASSWORD, ip })).json();
+  const final = restored.items.find((row) => row.id === item.id);
+  assert.equal(final.bank, "ICBC");
+  assert.equal(final.bankBuiltin, true, "选中内置银行时按 id 存");
 });
 
-test("历史上已存在的银行编号（不在名单里）仍可继续编辑", async () => {
+test("银行归一化：写内置中文名也存成 id；路径样式的名称被拒", async () => {
   const env = makeEnv();
   const ip = "11.2.0.1";
-  const { item } = await submitRaw(env, { name: "旧编号 logo", kind: "logo", category: "banks", bank: "ICBC", ip });
-  await call(env, "/review/items", { method: "POST", token: PASSWORD, ip, payload: { action: "approve", id: item.id, category: "banks", bank: "ICBC" } });
-  const raw = env.BUCKET.objects.get("records.json");
-  const data = JSON.parse(new TextDecoder().decode(raw.bytes));
-  data.find((entry) => entry.id === item.id).bank = "LEGACY";
-  await env.BUCKET.put("records.json", JSON.stringify(data), {});
-  const response = await call(env, "/review/catalog", { method: "POST", token: PASSWORD, ip, payload: { action: "update-item", id: item.id, category: "banks", bank: "LEGACY" } });
-  assert.equal(response.status, 200);
+  const { item } = await submitRaw(env, { name: "名称银行 logo", kind: "logo", category: "banks", bank: "中国工商银行", ip });
+  assert.equal(item.bank, "ICBC", "写内置中文名应归一化成 id");
+  assert.equal(item.bankName, "中国工商银行");
+  await call(env, "/review/items", { method: "POST", token: PASSWORD, ip, payload: { action: "approve", id: item.id, category: "banks", bank: "中国工商银行" } });
+  const published = await (await call(env, "/manifest")).json();
+  const row = published.items.find((entry) => entry.id === item.id);
+  assert.equal(row.bank, "ICBC");
+  assert.equal(row.bankName, "中国工商银行", "站点清单要带银行名称");
+  const bad = await call(env, "/review/catalog", { method: "POST", token: PASSWORD, ip, payload: { action: "update-item", id: item.id, category: "banks", bank: "../etc" } });
+  assert.equal(bad.status, 400);
 });
 
-test("提交时银行编号必须在名单里（格式合法但不存在也会被拒）", async () => {
+test("提交时可以自己填新银行名称，通过后出现在站点清单里", async () => {
   const env = makeEnv();
-  const form = submitForm({ name: "假银行", kind: "logo", category: "banks", bank: "ICBX", ip: "11.3.0.1", file: fileOf(pngBytes(200, 120), "x.png", "image/png") });
-  const response = await call(env, "/submit", { method: "POST", ip: "11.3.0.1", form: form.form });
-  assert.equal(response.status, 400);
-  assert.equal((await response.json()).error, "bank");
+  const ip = "11.3.0.1";
+  const form = submitForm({ name: "新银行", kind: "logo", category: "banks", bank: "星展银行", ip, file: fileOf(pngBytes(200, 120), "x.png", "image/png") });
+  const response = await call(env, "/submit", { method: "POST", ip, form: form.form });
+  assert.equal(response.status, 200);
+  const item = (await (await call(env, "/review/items", { token: PASSWORD, ip })).json()).items[0];
+  assert.equal(item.bank, "星展银行");
+  assert.equal(item.bankBuiltin, false);
+  await call(env, "/review/items", { method: "POST", token: PASSWORD, ip, payload: { action: "approve", id: item.id, category: "banks", bank: "星展银行" } });
+  const manifest = await (await call(env, "/manifest")).json();
+  const published = manifest.items.find((row) => row.id === item.id);
+  assert.equal(published.bank, "星展银行");
+  assert.equal(published.bankName, "星展银行");
 });
 
 test("彻底删除：文件与记录一起移除，清单同步", async () => {
@@ -599,7 +626,7 @@ test("彻底删除：文件与记录一起移除，清单同步", async () => {
   assert.equal(catalog.items.some((entry) => entry.id === item.id), false);
 });
 
-test("待处理列表支持分页、搜索，并附带银行白名单与元数据", async () => {
+test("待处理列表支持分页、搜索，并附带银行名称建议与元数据", async () => {
   const env = makeEnv();
   const ip = "11.5.0.1";
   for (const name of ["甲卡", "乙卡", "丙卡"]) await submitRaw(env, { name, ip });
@@ -612,7 +639,8 @@ test("待处理列表支持分页、搜索，并附带银行白名单与元数�
   assert.equal(searched.total, 1);
   assert.equal(searched.items[0].name, "乙卡");
   assert.equal(searched.items[0].size > 0, true);
-  assert.equal(first.banks.length > 100, true, "应返回银行白名单供下拉使用");
+  assert.equal(first.bankNames.length > 100, true, "应返回内置银行名称供输入联想");
+  assert.equal(first.bankNames.includes("中国工商银行"), true);
 });
 
 test("已通过文件与派生清单带 ETag，可 304 复用", async () => {
@@ -761,4 +789,104 @@ test("审核页面的内联脚本必须能被浏览器解析（模板转义不�
     assert.doesNotThrow(() => new Function(code), `内联脚本 #${index} 不应有语法错误`);
   });
   assert.equal(html.includes("彻底删除「"), true, "确认对话框文案仍在");
+});
+
+test("审核页面脚本不要给只读 DOM 属性赋值（例如 input.list，会直接抛错让整页空白）", async () => {
+  const html = await (await call(makeEnv(), "/review")).text();
+  const scripts = [...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)].map((match) => match[1]).join("\n");
+  const readonly = ["list", "form", "labels", "dataset", "options", "selectedOptions", "validity"];
+  const offenders = [];
+  for (const match of scripts.matchAll(/Object\.assign\(document\.createElement\("([a-z]+)"\), \{([\s\S]*?)\}\)/g)) {
+    for (const prop of readonly) {
+      if (match[2].includes(`${prop}:`)) offenders.push(`${match[1]}.${prop}`);
+    }
+  }
+  assert.deepEqual(offenders, [], "只读属性要用 setAttribute");
+});
+
+test("找回内置分类：只补缺的，已存在（改过名/角色）的不动", async () => {
+  const env = makeEnv();
+  const ip = "16.0.0.1";
+  await env.BUCKET.put("catalog.json", JSON.stringify({
+    categories: [{ id: "transit-logo", name: "交通联合", kind: "logo", role: "plain" }],
+    seeded: true,
+  }), { httpMetadata: { contentType: "application/json" } });
+  const before = await (await call(env, "/review/catalog?kind=logo&category=transit-logo", { token: PASSWORD, ip })).json();
+  assert.equal(before.categories.length, 1, "先造一个只剩交通联合的目录");
+  await call(env, "/review/catalog", { method: "POST", token: PASSWORD, ip, payload: { action: "rename-category", id: "transit-logo", name: "交通联合（自有）" } });
+
+  const restored = await (await call(env, "/review/catalog", { method: "POST", token: PASSWORD, ip, payload: { action: "restore-defaults" } })).json();
+  assert.equal(restored.ok, true);
+  assert.equal(restored.restored, 7, "8 个内置分类里缺 7 个");
+  const after = await (await call(env, "/review/catalog?kind=logo&category=transit-logo", { token: PASSWORD, ip })).json();
+  assert.equal(after.categories.length, 8);
+  assert.equal(after.categories.find((entry) => entry.id === "transit-logo").name, "交通联合（自有）", "已存在的分类不能被改回去");
+  assert.equal(after.categories.find((entry) => entry.id === "banks").role, "bank", "补回的内置分类带着默认角色");
+  assert.equal(after.bankNames.includes("中国工商银行"), true);
+  const again = await (await call(env, "/review/catalog", { method: "POST", token: PASSWORD, ip, payload: { action: "restore-defaults" } })).json();
+  assert.equal(again.restored, 0, "没有缺的就不写盘");
+});
+
+test("银行角色分类里的卡面不强制填银行（与提交口径一致）", async () => {
+  const env = makeEnv();
+  const ip = "17.0.0.1";
+  await call(env, "/review/catalog", { method: "POST", token: PASSWORD, ip, payload: { action: "set-role", id: "other", role: "bank" } });
+  const { item } = await submitRaw(env, { name: "角色银行下的卡面", kind: "face", category: "other", ip });
+  const approved = await call(env, "/review/items", { method: "POST", token: PASSWORD, ip, payload: { action: "approve", id: item.id, category: "other" } });
+  assert.equal(approved.status, 200, "卡面不需要银行名称");
+  const view = await (await call(env, "/review/catalog?kind=face&category=other", { token: PASSWORD, ip })).json();
+  const stored = view.items.find((row) => row.id === item.id);
+  assert.equal(stored.bank, "");
+  assert.equal(stored.bankName, "");
+});
+
+test("搜索能按银行名称命中（内置银行记录里存的是 id）", async () => {
+  const env = makeEnv();
+  const ip = "17.1.0.1";
+  const waiting = (await submitRaw(env, { name: "待审工行标记", kind: "logo", category: "banks", bank: "ICBC", ip })).item;
+  const pending = await (await call(env, `/review/items?q=${encodeURIComponent("工商")}`, { token: PASSWORD, ip })).json();
+  assert.equal(pending.items.some((row) => row.id === waiting.id), true, "待审列表按银行中文名也能搜到");
+  await call(env, "/review/items", { method: "POST", token: PASSWORD, ip, payload: { action: "approve", id: waiting.id, category: "banks", bank: "ICBC" } });
+  const byName = await (await call(env, `/review/catalog?kind=logo&q=${encodeURIComponent("工商")}`, { token: PASSWORD, ip })).json();
+  assert.equal(byName.items.some((row) => row.id === waiting.id), true, "已通过列表按名称也能搜到");
+  const byId = await (await call(env, `/review/catalog?kind=logo&q=icbc`, { token: PASSWORD, ip })).json();
+  assert.equal(byId.items.some((row) => row.id === waiting.id), true, "按 id 仍然能搜到");
+});
+
+test("条目被挪出银行分类或恢复后，过期的银行值会被清掉", async () => {
+  const env = makeEnv();
+  const ip = "18.0.0.1";
+  const { item } = await submitRaw(env, { name: "待挪的 logo", kind: "logo", category: "banks", bank: "ICBC", ip });
+  await call(env, "/review/items", { method: "POST", token: PASSWORD, ip, payload: { action: "approve", id: item.id, category: "banks", bank: "ICBC" } });
+  const removed = await (await call(env, "/review/catalog", { method: "POST", token: PASSWORD, ip, payload: { action: "remove-category", id: "banks", confirm: true } })).json();
+  assert.equal(removed.ok, true);
+  const hiddenView = await (await call(env, "/review/catalog", { token: PASSWORD, ip })).json();
+  const hiddenRow = hiddenView.hidden.find((row) => row.id === item.id);
+  assert.equal(hiddenRow.bank, "", "挪到非银行分类后应清空银行");
+  assert.equal(hiddenRow.bankName, "");
+  await call(env, "/review/catalog", { method: "POST", token: PASSWORD, ip, payload: { action: "restore-defaults" } });
+  const restored = await call(env, "/review/catalog", { method: "POST", token: PASSWORD, ip, payload: { action: "restore-item", id: item.id } });
+  assert.equal(restored.status, 200);
+  const after = await (await call(env, "/review/catalog?kind=logo", { token: PASSWORD, ip })).json();
+  const row = after.items.find((entry) => entry.id === item.id);
+  assert.equal(row.bank, "", "恢复后也不该带着过期银行值");
+});
+
+test("记录里存下来的银行名称优先显示（id 从名单里消失也不退化）", async () => {
+  const env = makeEnv();
+  const ip = "18.1.0.1";
+  const { item } = await submitRaw(env, { name: "历史银行 logo", kind: "logo", category: "banks", bank: "ICBC", ip });
+  await call(env, "/review/items", { method: "POST", token: PASSWORD, ip, payload: { action: "approve", id: item.id, category: "banks", bank: "ICBC" } });
+  const raw = env.BUCKET.objects.get("records.json");
+  const data = JSON.parse(new TextDecoder().decode(raw.bytes));
+  const stored = data.find((entry) => entry.id === item.id);
+  stored.bank = "ICBX";
+  stored.bankName = "某家已下架的银行";
+  await env.BUCKET.put("records.json", JSON.stringify(data), { httpMetadata: { contentType: "application/json" } });
+  const view = await (await call(env, "/review/catalog?kind=logo&category=banks", { token: PASSWORD, ip })).json();
+  const row = view.items.find((entry) => entry.id === item.id);
+  assert.equal(row.bankName, "某家已下架的银行", "显示要用记录里存的名字");
+  assert.equal(row.bankBuiltin, false);
+  const searched = await (await call(env, `/review/catalog?kind=logo&q=${encodeURIComponent("已下架")}`, { token: PASSWORD, ip })).json();
+  assert.equal(searched.items.some((entry) => entry.id === item.id), true, "按存下来的名称也能搜到");
 });

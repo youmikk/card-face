@@ -8,7 +8,7 @@
  *  - 所有 /files、/review/file 响应带 nosniff + CSP sandbox，禁止脚本在 worker 源上执行。
  *  - records.json / catalog.json 用 R2 条件写（ETag）做乐观锁，避免并发覆盖。
  */
-
+import { BANKS } from "./banks.js";
 const MAX_BYTES = 4 * 1024 * 1024;
 const MAX_SIDE = 12000;
 const MAX_PIXELS = 40 * 1000 * 1000;
@@ -29,29 +29,28 @@ const ROLES = ["plain", "bank", "other"];
 const STATUS = { pending: "pending", approved: "approved", rejected: "rejected", hidden: "hidden" };
 const TYPES = { png: "image/png", jpg: "image/jpeg", webp: "image/webp", svg: "image/svg+xml" };
 
-/* 银行编号白名单：与本仓库 app.js 的 bankIndex 同步（154 家）。
-   审核页的「银行编号」由这份名单出下拉，服务端同时按它校验——否则手误写成 ICBX 之类，
-   审核通过后该 logo 在站点上永远不会显示（前端只按 bankIndex 里的 id 匹配）。
-   新增银行后需要重新生成本数组，方法见 intake/README.md。 */
-const BANK_IDS = [
-  "ABC", "ADBC", "BCCB", "BGB", "BHB", "BLY", "BOAS", "BOB", "BOBD", "BOC",
-  "BOCY", "BOCZ", "BOD", "BODD", "BOGS", "BOGZ", "BOHAIB", "BOHLD", "BOHS", "BOHZ",
-  "BOJL", "BOLF", "BOLY", "BOP", "BOPJ", "BOQZ", "BOSC", "BOSZ", "BOTJ", "BOTL",
-  "BOTS", "BOXZ", "BOYK", "BSCB", "CABANK", "CCB", "CCQTGB", "CDB", "CDBANK", "CDCB",
-  "CEB", "CIB", "CITIC", "CMB", "CMBC", "COMM", "CQBANK", "CTS", "CZB", "CZBANK",
-  "CZCB", "DCCB", "DLB", "DTB", "DYCCB", "DZBANK", "EGBANK", "EIBOF", "FDBANK", "FJHXBC",
-  "FSCB", "FXCB", "GDB", "GHB", "GLBANK", "GWB", "GYCCB", "GZCB", "H3CB", "HBC",
-  "HDBANK", "HKB", "HMCCB", "HNB", "HRBCB", "HRXJB", "HSBANK", "HXB", "HZCB", "ICBC",
-  "JHCCB", "JINCHB", "JJCCB", "JNBANK", "JSB", "JSBANK", "JSCJCB", "JXB", "JXBANK", "JZB",
-  "JZBANK", "KCCCB", "KLB", "LJBANK", "LSBANK", "LSBC", "LSCCB", "LZB", "LZBANK", "LZCCB",
-  "MTBANK", "MYCCB", "Mybank", "NBCB", "NBCMB", "NDHB", "NJCB", "NXBANK", "NYBANK", "ORDOSB",
-  "PBOC", "PSBC", "QDCCB", "QHBANK", "QHDBANK", "QJCCCB", "QLBANK", "QSB", "RBOZ", "RZB",
-  "SCB", "SCTFB", "SJBANK", "SNBANK", "SPABANK", "SPDB", "SRBANK", "SXCB", "SZSBK", "TACCB",
-  "TLCB", "TZBANK", "UCCB", "WFCCB", "WHBANK", "WHCCB", "WZBANK", "XABANK", "XJB", "XJHB",
-  "XMBANK", "XMINTB", "XTB", "YACCB", "YBCCB", "YKYHB", "YNHTBANK", "YQCCB", "YTB", "ZGBANK",
-  "ZJKCCB", "ZYBANK", "ZZB", "ZZBANK",
-];
-const BANK_ID_SET = new Set(BANK_IDS);
+/* 内置银行：站点靠 id 把它挂到对应银行上，给人看的是中文名。名单外的名称按自定义银行处理。 */
+const BANK_ID_SET = new Set(BANKS.map((entry) => entry[0]));
+const BANK_NAMES = new Map(BANKS);
+const BANK_NAME_TO_ID = new Map(BANKS.map((entry) => [entry[1], entry[0]]));
+
+/**
+ * 银行值归一化：内置银行（写 id、或写中文名）统一存成 id；其它名称当作自定义银行原样存。
+ * 返回的 value 是站点用来挂 logo 的键，name 是给人看的名称。
+ */
+function resolveBank(input) {
+  const raw = String(input || "").replace(/\s+/g, " ").trim().slice(0, 24);
+  if (!raw || /[\\/]|\.\./.test(raw)) return { value: "", name: "" };
+  if (BANK_ID_SET.has(raw)) return { value: raw, name: BANK_NAMES.get(raw) || raw };
+  const id = BANK_NAME_TO_ID.get(raw);
+  if (id) return { value: id, name: BANK_NAMES.get(id) || raw };
+  return { value: raw, name: raw };
+}
+/** 给人看的银行名称：优先用记录里存下来的（旧数据没存就按 id / 名称推出来）。 */
+function bankLabel(item) {
+  return item.bankName || resolveBank(item.bank).name;
+}
+
 const MANIFEST_KEY = "manifest.json";
 const BACKUP_PREFIX = "backups/records-";
 
@@ -563,7 +562,8 @@ async function submit(request, env) {
   }
 
   const needsBank = kind === "logo" && target.role === "bank";
-  if (needsBank && !BANK_ID_SET.has(bank)) return json({ error: "bank" }, 400);
+  const bankValue = resolveBank(needsBank ? bank : "");
+  if (needsBank && !bankValue.value) return json({ error: "bank" }, 400);
 
   const id = crypto.randomUUID().replace(/-/g, "");
   const key = `pending/${id}.${type}`;
@@ -580,7 +580,8 @@ async function submit(request, env) {
         kind,
         name,
         category,
-        bank: needsBank ? bank : "",
+        bank: bankValue.value,
+        bankName: bankValue.name,
         label,
         type,
         key,
@@ -658,6 +659,7 @@ function publicItem(item, origin, categories) {
     name: item.name,
     category: item.category,
     bank: item.bank || "",
+    bankName: bankLabel(item),
     label: item.label || "",
     url: `${origin}/files/${item.id}`,
     width: logoWidth(item),
@@ -668,11 +670,18 @@ function publicItem(item, origin, categories) {
 
 /* ------------------------------------------------------- 审核端小工具 */
 
-function bankAllowed(bank, items) {
-  if (!bank) return false;
-  if (BANK_ID_SET.has(bank)) return true;
-  // 允许沿用历史上已存在的编号：避免早期手工填过的数据无法再编辑
-  return items.some((item) => item.bank === bank);
+function matchesQuery(item, q) {
+  if (!q) return true;
+  // 银行按「存的值」和「给人看的名称」都能搜到（内置银行存的是 id）
+  const fields = [item.name, item.label, item.bank, item.bankName, item.id, bankLabel(item)];
+  return fields.some((value) => String(value || "").toLowerCase().includes(q));
+}
+
+/** 银行名称建议：内置 154 家的中文名 + 记录里已经出现的自定义银行（后台与提交表单共用）。 */
+function bankNameOptions(items) {
+  const custom = [...new Set((items || []).map((item) => bankLabel(item)))]
+    .filter((name) => name && !BANK_NAME_TO_ID.has(name));
+  return [...BANK_NAMES.values(), ...custom];
 }
 
 function paging(url, defLimit = 60) {
@@ -680,11 +689,6 @@ function paging(url, defLimit = 60) {
   const offset = Math.max(0, Number(url.searchParams.get("offset")) || 0);
   const q = String(url.searchParams.get("q") || "").trim().toLowerCase().slice(0, 40);
   return { limit, offset, q };
-}
-
-function matchesQuery(item, q) {
-  if (!q) return true;
-  return [item.name, item.label, item.bank, item.id].some((value) => String(value || "").toLowerCase().includes(q));
 }
 
 /**
@@ -706,6 +710,8 @@ function adminItem(item, categories) {
     name: item.name,
     category: item.category,
     bank: item.bank || "",
+    bankName: bankLabel(item),
+    bankBuiltin: BANK_ID_SET.has(item.bank),
     label: item.label || "",
     type: item.type,
     status: item.status,
@@ -738,7 +744,7 @@ async function reviewItems(request, env) {
     pendingByKind,
     limit,
     offset,
-    banks: BANK_IDS,
+    bankNames: bankNameOptions(all),
   });
 }
 
@@ -782,7 +788,7 @@ async function catalogGet(request, env) {
     total: list.length,
     hidden: hidden.slice(0, 200).map((item) => adminItem(item, data.categories)),
     hiddenTotal: hidden.length,
-    banks: [...new Set([...BANK_IDS, ...all.map((item) => item.bank).filter(Boolean)])].sort(),
+    bankNames: bankNameOptions(all),
     limit,
     offset,
   });
@@ -816,14 +822,17 @@ async function reviewAction(request, env) {
     const target = data.categories.find((entry) => entry.id === body.category && entry.kind === ownKind);
     if (!target) return { commit: false, result: { error: "category", status: 400 } };
     const label = String(body.label || item.label || "").trim().slice(0, 24);
-    const bank = String(body.bank || "").trim();
-    if (target.role === "bank" && !bankAllowed(bank, items)) {
+    // 只有 logo 在「银行」角色分类下才要求银行名称（与 /submit 的口径一致）
+    const needsBank = ownKind === "logo" && target.role === "bank";
+    const picked = needsBank ? resolveBank(body.bank || item.bank || "") : { value: "", name: "" };
+    if (needsBank && !picked.value) {
       return { commit: false, result: { error: "bank", status: 400 } };
     }
     if (!item.key) return { commit: false, result: { error: "file", status: 404 } };
     item.kind = ownKind;
     item.category = target.id;
-    item.bank = target.role === "bank" ? bank : "";
+    item.bank = needsBank ? picked.value : "";
+    item.bankName = needsBank ? picked.name : "";
     if (body.name) item.name = String(body.name).trim().slice(0, 40) || item.name;
     item.label = label;
     item.status = STATUS.approved;
@@ -889,15 +898,18 @@ async function catalogAction(request, env) {
         const name = String(body.name === undefined ? item.name : body.name).trim().slice(0, 40);
         if (!name) return { commit: false, result: { error: "name", status: 400 } };
         const label = String(body.label === undefined ? item.label || "" : body.label).trim().slice(0, 24);
-        const bank = String(body.bank === undefined ? item.bank || "" : body.bank).trim();
-        if (target.role === "bank" && !bankAllowed(bank, items)) {
+        const needsBank = ownKind === "logo" && target.role === "bank";
+        const picked = needsBank ? resolveBank(body.bank === undefined ? item.bank || "" : body.bank) : { value: "", name: "" };
+        if (needsBank && !picked.value) {
           return { commit: false, result: { error: "bank", status: 400 } };
         }
         item.name = name;
         item.label = label;
-        item.bank = target.role === "bank" ? bank : "";
+        item.bank = needsBank ? picked.value : "";
+        item.bankName = needsBank ? picked.name : "";
       } else if (ownKind === "logo" && target.role !== "bank") {
         item.bank = "";
+        item.bankName = "";
       }
       item.kind = ownKind;
       item.category = target.id;
@@ -966,6 +978,8 @@ async function catalogAction(request, env) {
         items.forEach((item) => {
           if (kindOfItem(item, data.categories) !== target.kind || item.category !== target.id) return;
           item.category = siblings.length ? siblings[0].id : "";
+          // 条目被挪到非「银行」角色的分类后，清掉过期的银行值（站点按分类角色决定是否算银行图标）
+          if (!siblings.length || siblings[0].role !== "bank") { item.bank = ""; item.bankName = ""; }
           item.status = STATUS.hidden;
           item.hiddenAt = now;
           item.hiddenFrom = target.id;
@@ -988,6 +1002,9 @@ async function catalogAction(request, env) {
           if (!fallback) return { commit: false, result: { error: "category", status: 400 } };
           item.category = fallback.id;
         }
+        // 恢复后落在非「银行」角色的分类里，也要清掉过期的银行值
+        const parked = data.categories.find((entry) => entry.id === item.category);
+        if (!parked || parked.role !== "bank") { item.bank = ""; item.bankName = ""; }
         item.kind = ownKind;
         item.status = STATUS.approved;
         delete item.hiddenAt;
@@ -1010,6 +1027,14 @@ async function catalogAction(request, env) {
       });
       if (typeof fixed !== "number") return { commit: false, result: { error: "locked", status: 409 } };
       return { commit: false, result: { ok: true, fixed } };
+    }
+    // 找回被删掉的内置分类：只补缺失的 id，已存在（含改过名/角色）的一律不动
+    if (body.action === "restore-defaults") {
+      const have = new Set(data.categories.map((entry) => entry.id));
+      const missing = catalogDefault().categories.filter((entry) => !have.has(entry.id));
+      if (!missing.length) return { commit: false, result: { ok: true, restored: 0 } };
+      missing.forEach((entry) => data.categories.push({ ...entry }));
+      return { commit: true, result: { ok: true, restored: missing.length } };
     }
 
     if (body.action === "move-category") {
@@ -1162,7 +1187,7 @@ const PAGE_TEMPLATE = `<!doctype html>
   <section id="catalog"></section>
   <section>
     <h2>待处理 <span class="status" id="list-count"></span></h2>
-    <div class="toolbar"><input id="search" type="search" placeholder="搜索名称 / 备注 / 银行编号 / ID" /></div>
+    <div class="toolbar"><input id="search" type="search" placeholder="搜索名称 / 备注 / 银行名称 / ID" /></div>
     <div id="list"></div>
     <div class="toolbar" id="list-more" hidden></div>
   </section>
@@ -1173,7 +1198,7 @@ let token = "";
 let openCategory = "face:solid";
 let query = "";
 let searchTimer = 0;
-const state = { pending: [], pendingTotal: 0, pendingByKind: { face: 0, logo: 0 }, approved: [], approvedTotal: 0, approvedByKind: { face: 0, logo: 0 }, hidden: [], hiddenTotal: 0, hiddenByKind: { face: 0, logo: 0 }, categories: [], counts: {}, banks: [], orphans: 0, searching: false, limit: 60, approvedLimit: 80 };
+const state = { pending: [], pendingTotal: 0, pendingByKind: { face: 0, logo: 0 }, approved: [], approvedTotal: 0, approvedByKind: { face: 0, logo: 0 }, hidden: [], hiddenTotal: 0, hiddenByKind: { face: 0, logo: 0 }, categories: [], counts: {}, bankNames: [], orphans: 0, searching: false, limit: 60, approvedLimit: 80 };
 const previews = [];
 
 function auth() { return token ? { Authorization: "Bearer " + token } : {}; }
@@ -1280,6 +1305,20 @@ function targetCategory(select) {
   return state.categories.find(function (entry) { return entry.id === select.value; }) || null;
 }
 
+/** 银行名称建议（内置 154 家 + 记录里已有的自定义银行），给条目编辑器的输入框做联想。 */
+function bankDatalist() {
+  let node = document.querySelector("#bank-names");
+  if (!node) {
+    node = document.createElement("datalist");
+    node.id = "bank-names";
+    document.body.append(node);
+  }
+  node.replaceChildren();
+  state.bankNames.forEach(function (name) {
+    node.append(Object.assign(document.createElement("option"), { value: name }));
+  });
+}
+
 /**
  * 每个条目的详细编辑器：预览 + 元数据 + 名称/分类/银行/备注 + 按状态给出的动作。
  * 待审：通过 / 拒绝并删除文件 / 彻底删除；已通过：保存修改 / 隐藏 / 彻底删除；已隐藏：保存修改 / 恢复 / 彻底删除。
@@ -1300,6 +1339,7 @@ function itemEditor(item) {
   if (size) bits.push(size);
   if (item.type) bits.push(String(item.type).toUpperCase());
   if (item.hash) bits.push("指纹 " + String(item.hash).slice(0, 10));
+  if (item.bankName) bits.push("银行 " + item.bankName + (item.bankBuiltin ? "" : "（自定义）"));
   bits.push("状态 " + statusLabel(item.status));
   meta.textContent = bits.join(" · ");
   const nameRow = document.createElement("label");
@@ -1316,16 +1356,18 @@ function itemEditor(item) {
   catSelect.value = item.category || "";
   catRow.append("分类", catSelect);
   const bankRow = document.createElement("label");
-  const bankSelect = document.createElement("select");
-  bankSelect.append(Object.assign(document.createElement("option"), { value: "", textContent: "— 请选择 —" }));
-  state.banks.forEach(function (id) {
-    bankSelect.append(Object.assign(document.createElement("option"), { value: id, textContent: id }));
+  const bankInput = Object.assign(document.createElement("input"), {
+    type: "text",
+    value: item.bankName || item.bank || "",
+    maxLength: 24,
+    placeholder: "银行名称（可自己填）",
   });
-  if (item.bank && state.banks.indexOf(item.bank) < 0) {
-    bankSelect.append(Object.assign(document.createElement("option"), { value: item.bank, textContent: item.bank + "（不在名单里）" }));
-  }
-  bankSelect.value = item.bank || "";
-  bankRow.append("银行编号", bankSelect);
+  // list 是只读属性，必须用 setAttribute（用 Object.assign 会抛 TypeError 整页白）
+  bankInput.setAttribute("list", "bank-names");
+  const bankHint = document.createElement("span");
+  bankHint.className = "meta";
+  bankHint.textContent = item.bank ? (item.bankBuiltin ? "站点内置银行" : "自定义银行：站点上会按这个名称显示") : "";
+  bankRow.append("银行名称", bankInput, bankHint);
   const labelRow = document.createElement("label");
   const labelInput = Object.assign(document.createElement("input"), { type: "text", value: item.label || "", maxLength: 24 });
   labelRow.append("备注", labelInput);
@@ -1344,7 +1386,7 @@ function itemEditor(item) {
   primary.className = "ok";
   primary.textContent = item.status === "pending" ? "通过" : "保存修改";
   primary.addEventListener("click", function () {
-    const payload = { id: item.id, name: nameInput.value, category: catSelect.value, bank: bankSelect.value, label: labelInput.value };
+    const payload = { id: item.id, name: nameInput.value, category: catSelect.value, bank: bankInput.value, label: labelInput.value };
     if (item.status === "pending") send("/review/items", Object.assign({ action: "approve" }, payload));
     else send("/review/catalog", Object.assign({ action: "update-item" }, payload));
   });
@@ -1395,7 +1437,7 @@ function drawCatalog() {
   title.textContent = "分类";
   const note = document.createElement("p");
   note.className = "muted";
-  note.textContent = "点开一个分类查看/编辑里面的内容。角色决定条目要填银行编号还是备注。";
+  note.textContent = "点开一个分类查看/编辑里面的内容。角色决定条目要不要填银行名称或备注；银行名称可以在站点内置名单里选，也可以自己填。";
   const cats = document.createElement("div");
   cats.className = "cats";
   const groups = state.categories.map(function (entry) {
@@ -1486,6 +1528,18 @@ function drawCatalog() {
     notice("已修正 " + ((info && info.fixed) || 0) + " 条条目的类型。");
     load();
   });
+  const restore = document.createElement("button");
+  restore.type = "button";
+  restore.textContent = "找回内置分类";
+  restore.addEventListener("click", async function () {
+    if (!confirm("把被删掉的内置分类补回来？（纯色 / 银行 / 交通 / 其他、银行 / 交通联合 / 卡组织素材 / 支付方式）已存在的不动。")) return;
+    const response = await post("/review/catalog", { action: "restore-defaults" });
+    if (!response.ok) { notice("找回失败，请稍后再试。", "warn"); return; }
+    const info = await response.json().catch(function () { return null; });
+    notice("已找回 " + ((info && info.restored) || 0) + " 个内置分类。");
+    load();
+  });
+  repair.append(restore);
   repair.append(fix);
   // 「分类已被删除」的条目单独给一个虚拟分组，避免它们在后台彻底看不见
   if (state.orphans) {
@@ -1578,7 +1632,7 @@ async function load() {
   state.pending = pendingPayload.items || [];
   state.pendingTotal = pendingPayload.total || 0;
   state.pendingByKind = pendingPayload.pendingByKind || { face: 0, logo: 0 };
-  state.banks = pendingPayload.banks || [];
+  state.bankNames = pendingPayload.bankNames || [];
   const parts = (openCategory || "face:solid").split(":");
   const catalogResponse = await authed("/review/catalog?kind=" + encodeURIComponent(parts[0]) + "&category=" + encodeURIComponent(parts[1] || "") + "&limit=" + state.approvedLimit + "&q=" + encodeURIComponent(query));
   if (catalogResponse.ok) {
@@ -1593,8 +1647,9 @@ async function load() {
     state.approvedByKind = payload.approvedByKind || { face: 0, logo: 0 };
     state.orphans = payload.orphans || 0;
     state.searching = payload.searching === true;
-    if (payload.banks && payload.banks.length) state.banks = payload.banks;
+    if (payload.bankNames && payload.bankNames.length) state.bankNames = payload.bankNames;
   }
+  bankDatalist();
   drawCatalog();
   drawList(document.querySelector("#list"), state.pending, query ? "没有匹配的待处理条目。" : "没有待处理的图片。");
   document.querySelector("#list-count").textContent = state.pendingTotal
