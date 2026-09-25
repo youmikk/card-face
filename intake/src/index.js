@@ -58,11 +58,12 @@ async function submit(request, env) {
   const category = String(form.get("category") || "");
   const bank = String(form.get("bank") || "");
   const file = form.get("file");
-  const allowed = kind === "face" ? FACE_CATS : kind === "logo" ? LOGO_CATS : null;
-  if (!name || !allowed || !allowed.includes(category) || !(file instanceof File)) return json({ error: "fields" }, 400);
-  const label = String(form.get("label") || "").trim().slice(0, 24);
-  if (category === "other" && !label) return json({ error: "label" }, 400);
-  if (kind === "logo" && category === "banks" && !/^[A-Za-z0-9_-]{2,16}$/.test(bank)) return json({ error: "bank" }, 400);
+   const cats = await catalog(env);
+   const allowed = cats.categories.filter((entry) => (entry.kind || "face") === kind).map((entry) => entry.id);
+   if (!name || (kind !== "face" && kind !== "logo") || !allowed.includes(category) || !(file instanceof File)) return json({ error: "fields" }, 400);
+   const label = String(form.get("label") || "").trim().slice(0, 24);
+   const needsBank = kind === "logo" && (cats.categories.find((entry) => entry.id === category)?.name === "银行");
+   if (needsBank && !/^[A-Za-z0-9_-]{2,16}$/.test(bank)) return json({ error: "bank" }, 400);
   const type = TYPES[file.type] || extOf(file.name);
   if (!type || file.size <= 0 || file.size > MAX_BYTES) return json({ error: "file" }, 400);
   const id = crypto.randomUUID().replace(/-/g, "");
@@ -76,8 +77,8 @@ async function submit(request, env) {
     kind,
     name,
     category,
-    bank: kind === "logo" && category === "banks" ? bank : "",
-    label: category === "other" ? label : "",
+     bank: needsBank ? bank : "",
+     label,
     type,
     key,
     status: "pending",
@@ -161,17 +162,18 @@ function reviewPage() {
   if (body.action === "reject") {
     item.status = "rejected";
   } else if (body.action === "approve") {
-    const allowed = item.kind === "face" ? FACE_CATS : LOGO_CATS;
-    if (!allowed.includes(body.category)) return Response.json({ error: "category" }, { status: 400 });
-    const label = String(body.label || item.label || "").trim().slice(0, 24);
-    if (body.category === "other" && !label) return Response.json({ error: "label" }, { status: 400 });
-    if (item.kind === "logo" && body.category === "banks" && !/^[A-Za-z0-9_-]{2,16}$/.test(String(body.bank || ""))) {
-      return Response.json({ error: "bank" }, { status: 400 });
-    }
-    item.category = body.category;
-    item.bank = item.kind === "logo" && body.category === "banks" ? String(body.bank || "") : "";
-    if (body.name) item.name = String(body.name).trim().slice(0, 40);
-    item.label = body.category === "other" ? label : "";
+     const cats = await catalog(env);
+     const allowed = cats.categories.filter((entry) => (entry.kind || "face") === item.kind).map((entry) => entry.id);
+     if (!allowed.includes(body.category)) return Response.json({ error: "category" }, { status: 400 });
+     const label = String(body.label || item.label || "").trim().slice(0, 24);
+     const needsBank = item.kind === "logo" && cats.categories.find((entry) => entry.id === body.category)?.name === "银行";
+     if (needsBank && !/^[A-Za-z0-9_-]{2,16}$/.test(String(body.bank || ""))) {
+       return Response.json({ error: "bank" }, { status: 400 });
+     }
+     item.category = body.category;
+     item.bank = needsBank ? String(body.bank || "") : "";
+     if (body.name) item.name = String(body.name).trim().slice(0, 40);
+     item.label = label;
     const next = `approved/${item.id}.${item.type}`;
     if (item.key !== next) {
       const object = await env.BUCKET.get(item.key);

@@ -1264,10 +1264,10 @@ renderLogos();
        bank.appendChild(option);
      });
    }
-   document.querySelector("#submit-bank-row").hidden = !(kind.value === "logo" && category.value === "banks");
+   document.querySelector("#submit-bank-row").hidden = !(kind.value === "logo" && category.selectedOptions[0]?.textContent === "银行");
    const custom = document.querySelector("#submit-custom");
-   document.querySelector("#submit-custom-row").hidden = category.value !== "other";
-   custom.required = category.value === "other";
+   document.querySelector("#submit-custom-row").hidden = category.selectedOptions[0]?.textContent !== "其他";
+   custom.required = category.selectedOptions[0]?.textContent === "其他";
    custom.placeholder = kind.value === "face" ? "例如：银行卡" : "例如：地铁";
    document.querySelector("#submit-note").textContent = kind.value === "face" ? text.submitFaceNote : text.submitLogoNote;
  }
