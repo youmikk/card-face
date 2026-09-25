@@ -194,7 +194,7 @@ function reviewPage() {
  async function catalog(env) {
    const object = await env.BUCKET.get("catalog.json");
    const data = object ? await object.json().catch(() => null) : null;
-   const categories = Array.isArray(data?.categories) && data.categories.length ? data.categories : DEFAULT_FACE_CATS.map((entry) => ({ ...entry }));
+   const categories = Array.isArray(data?.categories) ? data.categories : DEFAULT_FACE_CATS.map((entry) => ({ ...entry }));
    return { categories, hidden: Array.isArray(data?.hidden) ? data.hidden : [] };
  }
  async function saveCatalog(env, data) {
@@ -213,26 +213,31 @@ function reviewPage() {
    const data = await catalog(env);
    if (body.action === "add-category") {
      const name = String(body.name || "").trim().slice(0, 16);
+     const kind = body.kind === "logo" ? "logo" : "face";
      if (!name) return Response.json({ error: "name" }, { status: 400 });
-     data.categories.push({ id: crypto.randomUUID().replace(/-/g, "").slice(0, 12), name });
+     data.categories.push({ id: crypto.randomUUID().replace(/-/g, "").slice(0, 12), name, kind });
    } else if (body.action === "remove-category") {
-     if (!data.categories.some((entry) => entry.id === body.id) || data.categories.length < 2) return Response.json({ error: "category" }, { status: 400 });
-     const fallback = data.categories.find((entry) => entry.id !== body.id).id;
-     data.categories = data.categories.filter((entry) => entry.id !== body.id);
-     const items = await records(env);
-     items.forEach((item) => { if (item.kind === "face" && item.category === body.id) item.category = fallback; });
-     await saveRecords(env, items);
+     const target = data.categories.find((entry) => entry.id === body.id);
+     if (!target) return Response.json({ error: "category" }, { status: 400 });
+     const siblings = data.categories.filter((entry) => (entry.kind || "face") === (target.kind || "face") && entry.id !== target.id);
+     data.categories = data.categories.filter((entry) => entry.id !== target.id);
+     if (siblings.length) {
+       const items = await records(env);
+       items.forEach((item) => { if (item.kind === (target.kind || "face") && item.category === target.id) item.category = siblings[0].id; });
+       await saveRecords(env, items);
+     }
    } else if (body.action === "move-category") {
      const index = data.categories.findIndex((entry) => entry.id === body.id);
      const next = index + (body.direction === "up" ? -1 : 1);
      if (index < 0 || next < 0 || next >= data.categories.length) return Response.json({ error: "move" }, { status: 400 });
+     if ((data.categories[index].kind || "face") !== (data.categories[next].kind || "face")) return Response.json({ error: "move" }, { status: 400 });
      const [entry] = data.categories.splice(index, 1);
      data.categories.splice(next, 0, entry);
    } else if (body.action === "move-face") {
      const items = await records(env);
      const item = items.find((entry) => entry.id === body.id);
      if (!item) return Response.json({ error: "missing" }, { status: 404 });
-     const allowed = item.kind === "face" ? data.categories.map((entry) => entry.id) : LOGO_CATS;
+     const allowed = data.categories.filter((entry) => (entry.kind || "face") === item.kind).map((entry) => entry.id);
      if (!allowed.includes(body.category)) return Response.json({ error: "category" }, { status: 400 });
      item.category = body.category;
      if (item.kind === "logo" && body.category !== "banks") item.bank = "";
@@ -331,25 +336,19 @@ const PAGE = `<!doctype html>
  const logos = [["banks","银行"],["transit","交通联合"],["official","官方"],["payment","支付"]];
  const previews = [];
  function auth() { return { Authorization: "Bearer " + token }; }
- function catalogSend(body) {
-   return fetch("/review/catalog", { method: "POST", headers: { ...auth(), "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((response) => { if (response.ok) return load(); });
- }
  function drawCatalog(data) {
-   faceCats = data.categories.map((entry) => [entry.id, entry.name]);
-   const logoCats = [["banks","银行"],["transit","交通联合"],["official","官方"],["payment","支付"]];
-   const groups = [
-     ...data.categories.map((entry) => ({ id: entry.id, name: entry.name, kind: "face" })),
-     ...logoCats.map(([id, name]) => ({ id, name, kind: "logo" })),
-   ];
-   if (!groups.some((entry) => entry.kind + ":" + entry.id === openCategory)) openCategory = "face:" + data.categories[0].id;
+   data.categories.forEach((entry) => { entry.kind = entry.kind || "face"; });
+   faceCats = data.categories.filter((entry) => entry.kind === "face").map((entry) => [entry.id, entry.name]);
+   const groups = data.categories.map((entry) => ({ id: entry.id, name: entry.name, kind: entry.kind }));
+   if (!groups.some((entry) => entry.kind + ":" + entry.id === openCategory)) openCategory = groups.length ? groups[0].kind + ":" + groups[0].id : "";
    const current = groups.find((entry) => entry.kind + ":" + entry.id === openCategory);
    const box = document.querySelector("#catalog");
    box.replaceChildren();
    const title = document.createElement("h2");
-   title.textContent = "分类内容";
+   title.textContent = "分类";
    const note = document.createElement("p");
    note.className = "muted";
-   note.textContent = "点一个分类，只看里面的卡面或 logo，也可以从网页删除。";
+   note.textContent = "先添加分类。点开一个分类后，只显示里面的卡面或 logo。";
    const cats = document.createElement("div");
    cats.className = "cats";
    groups.forEach((entry) => {
@@ -358,36 +357,38 @@ const PAGE = `<!doctype html>
      const open = document.createElement("button");
      open.type = "button"; open.className = "name"; open.textContent = (entry.kind === "face" ? "卡面 · " : "Logo · ") + entry.name;
      open.addEventListener("click", () => { openCategory = entry.kind + ":" + entry.id; drawCatalog(data); });
-     row.append(open);
-     if (entry.kind === "face") {
-       const index = data.categories.findIndex((item) => item.id === entry.id);
-       const up = document.createElement("button");
-       up.type = "button"; up.textContent = "上移"; up.disabled = index === 0;
-       up.addEventListener("click", () => catalogSend({ action: "move-category", id: entry.id, direction: "up" }));
-       const down = document.createElement("button");
-       down.type = "button"; down.textContent = "下移"; down.disabled = index === data.categories.length - 1;
-       down.addEventListener("click", () => catalogSend({ action: "move-category", id: entry.id, direction: "down" }));
-       const remove = document.createElement("button");
-       remove.type = "button"; remove.className = "no"; remove.textContent = "删除分类";
-       remove.addEventListener("click", () => catalogSend({ action: "remove-category", id: entry.id }));
-       row.append(up, down, remove);
-     }
+     const same = groups.filter((item) => item.kind === entry.kind);
+     const index = same.indexOf(entry);
+     const up = document.createElement("button");
+     up.type = "button"; up.textContent = "上移"; up.disabled = index === 0;
+     up.addEventListener("click", () => catalogSend({ action: "move-category", id: entry.id, direction: "up" }));
+     const down = document.createElement("button");
+     down.type = "button"; down.textContent = "下移"; down.disabled = index === same.length - 1;
+     down.addEventListener("click", () => catalogSend({ action: "move-category", id: entry.id, direction: "down" }));
+     const remove = document.createElement("button");
+     remove.type = "button"; remove.className = "no"; remove.textContent = "删除分类";
+     remove.addEventListener("click", () => catalogSend({ action: "remove-category", id: entry.id }));
+     row.append(open, up, down, remove);
      cats.append(row);
    });
    const add = document.createElement("form");
    add.className = "add";
+   const kind = document.createElement("select");
+   [["face","卡面"],["logo","Logo"]].forEach(([id, text]) => kind.append(Object.assign(document.createElement("option"), { value: id, textContent: text })));
    const input = document.createElement("input");
-   input.placeholder = "新的卡面分类"; input.maxLength = 16; input.required = true;
+   input.placeholder = "新分类名称"; input.maxLength = 16; input.required = true;
    const submit = document.createElement("button");
-   submit.className = "ok"; submit.textContent = "添加卡面分类";
-   add.append(input, submit);
-   add.addEventListener("submit", (event) => { event.preventDefault(); catalogSend({ action: "add-category", name: input.value }); });
+   submit.className = "ok"; submit.textContent = "添加分类";
+   add.append(kind, input, submit);
+   add.addEventListener("submit", (event) => { event.preventDefault(); openCategory = kind.value + ":new"; catalogSend({ action: "add-category", name: input.value, kind: kind.value }); });
+   box.append(title, note, cats, add);
+   if (!current) return;
    const heading = document.createElement("h2");
-   heading.textContent = current.name;
+   heading.textContent = (current.kind === "face" ? "卡面 · " : "Logo · ") + current.name;
    const cards = document.createElement("div");
    cards.className = "cards";
    const visible = data.items.filter((item) => item.kind === current.kind && item.category === current.id);
-   const choices = current.kind === "face" ? faceCats : logoCats;
+   const choices = data.categories.filter((entry) => entry.kind === current.kind);
    visible.forEach((item) => {
      const card = document.createElement("article");
      card.className = "card";
@@ -397,7 +398,7 @@ const PAGE = `<!doctype html>
      const name = document.createElement("strong");
      name.textContent = item.name;
      const category = document.createElement("select");
-     choices.forEach(([id, text]) => category.append(Object.assign(document.createElement("option"), { value: id, textContent: text })));
+     choices.forEach((entry) => category.append(Object.assign(document.createElement("option"), { value: entry.id, textContent: entry.name })));
      category.value = current.id;
      category.addEventListener("change", () => { openCategory = current.kind + ":" + category.value; catalogSend({ action: "move-face", id: item.id, category: category.value }); });
      const remove = document.createElement("button");

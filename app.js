@@ -145,8 +145,12 @@ function buildGroups() {
        extraBankMarks[item.bank].push(mark);
        return;
      }
-     const group = groups.find((entry) => entry.id === item.category);
-     if (group) group.marks.push(mark);
+     let group = groups.find((entry) => entry.id === item.category);
+     if (!group) {
+       group = { id: item.category, name: item.category, marks: [] };
+       groups.push(group);
+     }
+     group.marks.push(mark);
    });
  }
  let faces = [
@@ -1214,8 +1218,12 @@ renderLogos();
      if (!response.ok) return;
      const data = await response.json();
      approved = Array.isArray(data.items) ? data.items : [];
-     if (Array.isArray(data.categories) && data.categories.length) faceCategories = data.categories.filter((entry) => entry && entry.id);
-     if (!faceCategories.some((entry) => entry.id === faceCategory)) faceCategory = faceCategories[0].id;
+     if (Array.isArray(data.categories)) {
+       faceCategories = data.categories.filter((entry) => entry && entry.id && (entry.kind || "face") === "face");
+       const logoNames = Object.fromEntries(data.categories.filter((entry) => entry.kind === "logo").map((entry) => [entry.id, entry.name]));
+       groups.forEach((group) => { if (logoNames[group.id]) group.name = logoNames[group.id]; });
+     }
+     if (!faceCategories.some((entry) => entry.id === faceCategory) && faceCategories.length) faceCategory = faceCategories[0].id;
      applyLanguage();
    } catch {}
  }
