@@ -495,7 +495,7 @@ async function buildManifest(env, origin) {
   const data = await catalog(env);
   const items = (await records(env))
     .filter((item) => item.status === STATUS.approved)
-    .map((item) => publicItem(item, origin));
+    .map((item) => publicItem(item, origin, data.categories));
   return { items, categories: publicCategories(data), updated: new Date().toISOString() };
 }
 
@@ -651,10 +651,10 @@ function logoWidth(item) {
   return Math.round(Math.min(200, Math.max(60, (40 * w) / h)));
 }
 
-function publicItem(item, origin) {
+function publicItem(item, origin, categories) {
   return {
     id: item.id,
-    kind: item.kind,
+    kind: kindOfItem(item, categories),
     name: item.name,
     category: item.category,
     bank: item.bank || "",
@@ -687,11 +687,22 @@ function matchesQuery(item, q) {
   return [item.name, item.label, item.bank, item.id].some((value) => String(value || "").toLowerCase().includes(q));
 }
 
+/**
+ * 条目的真实类型（face / logo）：分类 id 能对上时以分类为准。
+ * 历史数据里有条目没写 kind、或早期默认写成了 face，若直接按 item.kind 过滤，
+ * 这些条目会在后台彻底消失（分类点进去是空的、搜索也搜不到）——所以读取一律走这里推断。
+ */
+function kindOfItem(item, categories) {
+  const hit = (categories || []).find((entry) => entry.id === item.category);
+  if (hit) return hit.kind === "logo" ? "logo" : "face";
+  return item.kind === "logo" ? "logo" : "face";
+}
+
 /** 审核页统一使用的条目视图（带运营需要的提交时间/大小/尺寸/指纹等元数据）。 */
-function adminItem(item) {
+function adminItem(item, categories) {
   return {
     id: item.id,
-    kind: item.kind,
+    kind: kindOfItem(item, categories),
     name: item.name,
     category: item.category,
     bank: item.bank || "",
@@ -714,11 +725,17 @@ async function reviewItems(request, env) {
   await housekeeping(env, new URL(request.url).origin).catch(() => {});
   const url = new URL(request.url);
   const { limit, offset, q } = paging(url);
+  const data = await catalog(env);
   const all = await records(env);
   const pending = all.filter((item) => item.status === STATUS.pending && matchesQuery(item, q)).reverse();
+  const pendingByKind = { face: 0, logo: 0 };
+  all.filter((item) => item.status === STATUS.pending).forEach((item) => {
+    pendingByKind[kindOfItem(item, data.categories)] += 1;
+  });
   return json({
-    items: pending.slice(offset, offset + limit).map(adminItem),
+    items: pending.slice(offset, offset + limit).map((item) => adminItem(item, data.categories)),
     total: pending.length,
+    pendingByKind,
     limit,
     offset,
     banks: BANK_IDS,
@@ -736,16 +753,34 @@ async function catalogGet(request, env) {
   const category = String(url.searchParams.get("category") || "");
   const all = await records(env);
   const approved = all.filter((item) => item.status === STATUS.approved);
+  const searching = q !== "";
+  const kindOf = (item) => kindOfItem(item, data.categories);
+  const knownCategory = (item) => data.categories.some((entry) => entry.id === item.category && entry.kind === kindOf(item));
+  const orphans = approved.filter((item) => !knownCategory(item));
+  // 计数按「类型:分类」给键，避免卡面/Logo 分类 id 撞车时数字串台
   const counts = {};
-  approved.forEach((item) => { counts[item.category] = (counts[item.category] || 0) + 1; });
-  const inCategory = approved.filter((item) => item.kind === kind && (!category || item.category === category) && matchesQuery(item, q));
+  approved.forEach((item) => { const key = kindOf(item) + ':' + item.category; counts[key] = (counts[key] || 0) + 1; });
+  const approvedByKind = { face: 0, logo: 0 };
+  approved.forEach((item) => { approvedByKind[kindOf(item)] += 1; });
+  const hiddenByKind = { face: 0, logo: 0 };
+  all.filter((item) => item.status === STATUS.hidden).forEach((item) => { hiddenByKind[kindOf(item)] += 1; });
+  // 搜索时跨分类跨类型；__orphan__ 是「分类已被删除」的虚拟分组，
+  // 保证任何条目都不会因为分类被删而在后台彻底看不见。
+  let list;
+  if (searching) list = approved.filter((item) => matchesQuery(item, q));
+  else if (category === "__orphan__") list = orphans;
+  else list = approved.filter((item) => kindOf(item) === kind && (!category || item.category === category));
   const hidden = all.filter((item) => item.status === STATUS.hidden && matchesQuery(item, q));
   return json({
     categories: data.categories,
     counts,
-    items: inCategory.slice(offset, offset + limit).map(adminItem),
-    total: inCategory.length,
-    hidden: hidden.slice(0, 200).map(adminItem),
+    approvedByKind,
+    hiddenByKind,
+    orphans: orphans.length,
+    searching,
+    items: list.slice(offset, offset + limit).map((item) => adminItem(item, data.categories)),
+    total: list.length,
+    hidden: hidden.slice(0, 200).map((item) => adminItem(item, data.categories)),
     hiddenTotal: hidden.length,
     banks: [...new Set([...BANK_IDS, ...all.map((item) => item.bank).filter(Boolean)])].sort(),
     limit,
@@ -776,7 +811,9 @@ async function reviewAction(request, env) {
       return { commit: true, result: { ok: true, key } };
     }
     if (body.action !== "approve") return { commit: false, result: { error: "action", status: 400 } };
-    const target = data.categories.find((entry) => entry.id === body.category && entry.kind === item.kind);
+    // 老数据可能没写 kind（或早期写成 face），以分类推断出的类型为准，并顺手写回修正
+    const ownKind = kindOfItem(item, data.categories);
+    const target = data.categories.find((entry) => entry.id === body.category && entry.kind === ownKind);
     if (!target) return { commit: false, result: { error: "category", status: 400 } };
     const label = String(body.label || item.label || "").trim().slice(0, 24);
     const bank = String(body.bank || "").trim();
@@ -784,6 +821,7 @@ async function reviewAction(request, env) {
       return { commit: false, result: { error: "bank", status: 400 } };
     }
     if (!item.key) return { commit: false, result: { error: "file", status: 404 } };
+    item.kind = ownKind;
     item.category = target.id;
     item.bank = target.role === "bank" ? bank : "";
     if (body.name) item.name = String(body.name).trim().slice(0, 40) || item.name;
@@ -843,8 +881,9 @@ async function catalogAction(request, env) {
         item.updatedAt = now;
         return { commit: true, result: { ok: true } };
       }
+      const ownKind = kindOfItem(item, snapshot.categories);
       const wanted = String(body.category || item.category || "");
-      const target = snapshot.categories.find((entry) => entry.id === wanted && entry.kind === item.kind);
+      const target = snapshot.categories.find((entry) => entry.id === wanted && entry.kind === ownKind);
       if (!target) return { commit: false, result: { error: "category", status: 400 } };
       if (body.action === "update-item") {
         const name = String(body.name === undefined ? item.name : body.name).trim().slice(0, 40);
@@ -857,9 +896,10 @@ async function catalogAction(request, env) {
         item.name = name;
         item.label = label;
         item.bank = target.role === "bank" ? bank : "";
-      } else if (item.kind === "logo" && target.role !== "bank") {
+      } else if (ownKind === "logo" && target.role !== "bank") {
         item.bank = "";
       }
+      item.kind = ownKind;
       item.category = target.id;
       item.updatedAt = now;
       return { commit: true, result: { ok: true } };
@@ -917,14 +957,14 @@ async function catalogAction(request, env) {
       if (!target) return fail("category", 400);
       if (body.confirm !== true) {
         const all = await records(env);
-        const affected = all.filter((item) => item.kind === target.kind && item.category === target.id);
+        const affected = all.filter((item) => kindOfItem(item, data.categories) === target.kind && item.category === target.id);
         return { commit: false, result: { ok: false, needConfirm: true, affected: { items: affected.length, hidden: true } } };
       }
       const siblings = data.categories.filter((entry) => entry.kind === target.kind && entry.id !== target.id);
       const movedCount = (await mutateRecords(env, (items) => {
         let touched = 0;
         items.forEach((item) => {
-          if (item.kind !== target.kind || item.category !== target.id) return;
+          if (kindOfItem(item, data.categories) !== target.kind || item.category !== target.id) return;
           item.category = siblings.length ? siblings[0].id : "";
           item.status = STATUS.hidden;
           item.hiddenAt = now;
@@ -941,12 +981,14 @@ async function catalogAction(request, env) {
         const item = items.find((entry) => entry.id === body.id);
         if (!item) return { commit: false, result: { error: "missing", status: 404 } };
         if (item.status !== STATUS.hidden) return { commit: false, result: { error: "state", status: 409 } };
-        const exists = item.category && data.categories.some((entry) => entry.id === item.category && entry.kind === item.kind);
+        const ownKind = kindOfItem(item, data.categories);
+        const exists = item.category && data.categories.some((entry) => entry.id === item.category && entry.kind === ownKind);
         if (!exists) {
-          const fallback = data.categories.find((entry) => entry.kind === item.kind);
+          const fallback = data.categories.find((entry) => entry.kind === ownKind);
           if (!fallback) return { commit: false, result: { error: "category", status: 400 } };
           item.category = fallback.id;
         }
+        item.kind = ownKind;
         item.status = STATUS.approved;
         delete item.hiddenAt;
         delete item.hiddenFrom;
@@ -955,6 +997,21 @@ async function catalogAction(request, env) {
       if (restored && restored.error) return { commit: false, result: restored };
       return { commit: false, result: { ok: true } };
     }
+    // 批量修正历史条目的类型：按分类推断写回。读取时已经能看见它们，
+    // 这一步是让数据本身变正确（站点清单里的 kind 也跟着对）。
+    if (body.action === "fix-kinds") {
+      const fixed = await mutateRecords(env, (items) => {
+        let touched = 0;
+        items.forEach((item) => {
+          const ownKind = kindOfItem(item, data.categories);
+          if (item.kind !== ownKind) { item.kind = ownKind; touched += 1; }
+        });
+        return { commit: touched > 0, result: touched };
+      });
+      if (typeof fixed !== "number") return { commit: false, result: { error: "locked", status: 409 } };
+      return { commit: false, result: { ok: true, fixed } };
+    }
+
     if (body.action === "move-category") {
       const index = data.categories.findIndex((entry) => entry.id === body.id);
       const next = index + (body.direction === "up" ? -1 : 1);
@@ -1113,10 +1170,10 @@ const PAGE_TEMPLATE = `<!doctype html>
 </main>
 <script nonce="__NONCE__">
 let token = "";
-let openCategory = "";
+let openCategory = "face:solid";
 let query = "";
 let searchTimer = 0;
-const state = { pending: [], pendingTotal: 0, approved: [], approvedTotal: 0, hidden: [], hiddenTotal: 0, categories: [], counts: {}, banks: [], limit: 60, approvedLimit: 80 };
+const state = { pending: [], pendingTotal: 0, pendingByKind: { face: 0, logo: 0 }, approved: [], approvedTotal: 0, approvedByKind: { face: 0, logo: 0 }, hidden: [], hiddenTotal: 0, hiddenByKind: { face: 0, logo: 0 }, categories: [], counts: {}, banks: [], orphans: 0, searching: false, limit: 60, approvedLimit: 80 };
 const previews = [];
 
 function auth() { return token ? { Authorization: "Bearer " + token } : {}; }
@@ -1344,12 +1401,12 @@ function drawCatalog() {
   const groups = state.categories.map(function (entry) {
     return { id: entry.id, name: entry.name, kind: entry.kind || "face", role: entry.role || "plain" };
   });
-  if (!groups.some(function (entry) { return entry.kind + ":" + entry.id === openCategory; })) {
+  if (openCategory !== "orphan:__orphan__" && !groups.some(function (entry) { return entry.kind + ":" + entry.id === openCategory; })) {
     openCategory = groups.length ? groups[0].kind + ":" + groups[0].id : "";
   }
   const current = groups.find(function (entry) { return entry.kind + ":" + entry.id === openCategory; });
   groups.forEach(function (entry) {
-    const count = state.counts[entry.id] || 0;
+    const count = state.counts[entry.kind + ":" + entry.id] || state.counts[entry.id] || 0;
     const row = document.createElement("div");
     row.className = "cat" + (entry === current ? " active" : "");
     const open = document.createElement("button");
@@ -1415,18 +1472,55 @@ function drawCatalog() {
     openCategory = kind.value + ":new";
     send("/review/catalog", { action: "add-category", name: input.value, kind: kind.value, role: addRole.value });
   });
-  box.append(title, note, cats, add);
+  // 历史条目里没写类型的，读取时已经按分类推断显示；这里把推断结果一次性写回记录
+  const repair = document.createElement("div");
+  repair.className = "toolbar";
+  const fix = document.createElement("button");
+  fix.type = "button";
+  fix.textContent = "修正历史类型";
+  fix.addEventListener("click", async function () {
+    if (!confirm("按分类把历史条目的类型（卡面 / Logo）写回记录？只改类型，不动内容。")) return;
+    const response = await post("/review/catalog", { action: "fix-kinds" });
+    if (!response.ok) { notice("修正失败，请稍后再试。", "warn"); return; }
+    const info = await response.json().catch(function () { return null; });
+    notice("已修正 " + ((info && info.fixed) || 0) + " 条条目的类型。");
+    load();
+  });
+  repair.append(fix);
+  // 「分类已被删除」的条目单独给一个虚拟分组，避免它们在后台彻底看不见
+  if (state.orphans) {
+    const row = document.createElement("div");
+    row.className = "cat" + (openCategory === "orphan:__orphan__" ? " active" : "");
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "name";
+    open.textContent = "未归类（分类已删除）（" + state.orphans + "）";
+    open.addEventListener("click", function () { openCategory = "orphan:__orphan__"; load(); });
+    row.append(open);
+    cats.append(row);
+  }
+  const summary = document.createElement("p");
+  summary.className = "meta";
+  summary.textContent = "已通过：卡面 " + state.approvedByKind.face + " · Logo " + state.approvedByKind.logo
+    + (state.orphans ? "（未归类 " + state.orphans + "）" : "")
+    + "　已隐藏：卡面 " + state.hiddenByKind.face + " · Logo " + state.hiddenByKind.logo
+    + "　待处理：卡面 " + state.pendingByKind.face + " · Logo " + state.pendingByKind.logo;
+  box.append(title, note, summary, cats, add, repair);
   const heading = document.createElement("h2");
-  heading.textContent = current
-    ? (current.kind === "face" ? "卡面 · " : "Logo · ") + current.name + "　角色：" + roleLabel(current.role) + "　共 " + state.approvedTotal + " 条"
-    : "分类还没建好";
+  heading.textContent = state.searching
+    ? "搜索结果（跨分类，共 " + state.approvedTotal + " 条）"
+    : openCategory === "orphan:__orphan__"
+      ? "未归类（分类已删除）　共 " + state.approvedTotal + " 条"
+      : current
+        ? (current.kind === "face" ? "卡面 · " : "Logo · ") + current.name + "　角色：" + roleLabel(current.role) + "　共 " + state.approvedTotal + " 条"
+        : "分类还没建好";
   const cards = document.createElement("div");
   cards.className = "cards";
   state.approved.forEach(function (item) { cards.append(itemEditor(item)); });
   if (!state.approved.length) {
     const empty = document.createElement("p");
     empty.className = "muted empty";
-    empty.textContent = current ? "这个分类里还没有内容。" : "";
+    empty.textContent = state.searching ? "没有匹配的条目。" : current ? "这个分类里还没有内容。" : "";
     cards.append(empty);
   }
   const more = document.createElement("div");
@@ -1483,8 +1577,9 @@ async function load() {
   const pendingPayload = await pendingResponse.json();
   state.pending = pendingPayload.items || [];
   state.pendingTotal = pendingPayload.total || 0;
+  state.pendingByKind = pendingPayload.pendingByKind || { face: 0, logo: 0 };
   state.banks = pendingPayload.banks || [];
-  const parts = (openCategory || "face:").split(":");
+  const parts = (openCategory || "face:solid").split(":");
   const catalogResponse = await authed("/review/catalog?kind=" + encodeURIComponent(parts[0]) + "&category=" + encodeURIComponent(parts[1] || "") + "&limit=" + state.approvedLimit + "&q=" + encodeURIComponent(query));
   if (catalogResponse.ok) {
     const payload = await catalogResponse.json();
@@ -1494,13 +1589,21 @@ async function load() {
     state.approvedTotal = payload.total || 0;
     state.hidden = payload.hidden || [];
     state.hiddenTotal = payload.hiddenTotal || 0;
+    state.hiddenByKind = payload.hiddenByKind || { face: 0, logo: 0 };
+    state.approvedByKind = payload.approvedByKind || { face: 0, logo: 0 };
+    state.orphans = payload.orphans || 0;
+    state.searching = payload.searching === true;
     if (payload.banks && payload.banks.length) state.banks = payload.banks;
   }
   drawCatalog();
   drawList(document.querySelector("#list"), state.pending, query ? "没有匹配的待处理条目。" : "没有待处理的图片。");
-  document.querySelector("#list-count").textContent = state.pendingTotal ? "共 " + state.pendingTotal + " 条" : "";
+  document.querySelector("#list-count").textContent = state.pendingTotal
+    ? "共 " + state.pendingTotal + " 条（卡面 " + state.pendingByKind.face + " · Logo " + state.pendingByKind.logo + "）"
+    : "";
   drawHidden();
-  document.querySelector("#hidden-count").textContent = state.hiddenTotal ? "共 " + state.hiddenTotal + " 条" : "";
+  document.querySelector("#hidden-count").textContent = state.hiddenTotal
+    ? "共 " + state.hiddenTotal + " 条（卡面 " + state.hiddenByKind.face + " · Logo " + state.hiddenByKind.logo + "）"
+    : "";
   const moreBox = document.querySelector("#list-more");
   moreBox.replaceChildren();
   const remaining = state.pendingTotal - state.pending.length;

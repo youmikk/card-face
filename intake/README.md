@@ -23,8 +23,8 @@
 | `GET /review` | 审核页面（需要口令） |
 | `GET /review/items` | 待审列表：`?q=` 搜索、`?limit=&offset=` 分页，返回 `total` 与 `banks` |
 | `POST /review/items` | `approve` / `reject`（拒绝会删掉文件，记录保留 30 天） |
-| `GET /review/catalog` | 分类、每类计数、隐藏列表、银行白名单；`?kind=&category=&q=&limit=&offset=` |
-| `POST /review/catalog` | `add-category` / `rename-category` / `set-role` / `move-category` / `remove-category`（软删除）/ `update-item`（详细编辑）/ `hide-item` / `restore-item` / `delete-item`（彻底删除） |
+| `GET /review/catalog` | 分类、每类计数（按「类型:分类」给键）、已通过/已隐藏按类型计数、未归类条目数、隐藏列表、银行白名单；`?kind=&category=&q=&limit=&offset=`，`category=__orphan__` 查看分类已删除的条目，带 `q` 时跨分类跨类型搜索 |
+| `POST /review/catalog` | `add-category` / `rename-category` / `set-role` / `move-category` / `remove-category`（软删除）/ `update-item`（详细编辑）/ `hide-item` / `restore-item` / `delete-item`（彻底删除）/ `fix-kinds`（按分类把历史条目的 kind 写回记录） |
 | `GET/POST/DELETE /review/password` | 口令状态 / 轮换（需当前口令）/ 清除 R2 哈希回到 env 控制 |
 | `GET /review/file/<id>` | 预览待审、已通过或已隐藏的文件（需要口令） |
 

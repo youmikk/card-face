@@ -668,3 +668,82 @@ test("老清单缺少内置分类时只补一次，之后运营者的删除保�
   assert.equal(stored.seeded, true, "应写入 seeded 标记");
   assert.equal(stored.categories.some((entry) => entry.id === "transit"), false);
 });
+
+/** 先落一份只含这两个分类的目录，后面改它才有对象可改（seeded 让内置分类不被补回）。 */
+async function seedTinyCatalog(env) {
+  await env.BUCKET.put("catalog.json", JSON.stringify({
+    categories: [
+      { id: "solid", name: "纯色", kind: "face", role: "plain" },
+      { id: "banks", name: "银行", kind: "logo", role: "bank" },
+    ],
+    seeded: true,
+  }), { httpMetadata: { contentType: "application/json" } });
+}
+
+/** 抹掉记录里的 kind，还原成历史数据的样子。 */
+async function dropKinds(env) {
+  const stored = JSON.parse(new TextDecoder().decode(env.BUCKET.objects.get("records.json").bytes));
+  stored.forEach((entry) => { delete entry.kind; });
+  await env.BUCKET.put("records.json", JSON.stringify(stored), { httpMetadata: { contentType: "application/json" } });
+  return stored;
+}
+
+test("分类已被删除的条目在后台仍能看见（未归类分组 + 跨分类搜索）", async () => {
+  const env = makeEnv();
+  const ip = "13.0.0.1";
+  await seedTinyCatalog(env);
+  const { item } = await submitRaw(env, { name: "孤儿 logo", kind: "logo", category: "banks", bank: "ICBC", ip });
+  await call(env, "/review/items", { method: "POST", token: PASSWORD, ip, payload: { action: "approve", id: item.id, category: "banks", bank: "ICBC" } });
+  // 模拟「这个分类后来被删掉」：目录里只剩别的分类
+  await env.BUCKET.put("catalog.json", JSON.stringify({ categories: [{ id: "solid", name: "纯色", kind: "face", role: "plain" }], seeded: true }), { httpMetadata: { contentType: "application/json" } });
+  const orphanView = await (await call(env, "/review/catalog?kind=logo&category=__orphan__", { token: PASSWORD, ip })).json();
+  assert.equal(orphanView.orphans, 1, "应统计出未归类条目");
+  assert.equal(orphanView.items.some((entry) => entry.id === item.id), true, "未归类分组里应能看到它");
+  const searched = await (await call(env, `/review/catalog?kind=face&q=${encodeURIComponent("孤儿")}`, { token: PASSWORD, ip })).json();
+  assert.equal(searched.items.some((entry) => entry.id === item.id), true, "搜索应跨分类找到它");
+  assert.equal(searched.searching, true);
+  const summary = await (await call(env, "/review/catalog?kind=face&category=solid", { token: PASSWORD, ip })).json();
+  assert.equal(summary.approvedByKind.logo, 1, "摘要应显示 Logo 已通过条数");
+});
+
+test("老记录没写 kind 时按分类推断：分类里能看见、待审计数正确、保存即写回", async () => {
+  const env = makeEnv();
+  const ip = "14.0.0.1";
+  await seedTinyCatalog(env);
+  const waiting = (await submitRaw(env, { name: "老待审 logo", kind: "logo", category: "banks", bank: "ICBC", ip })).item;
+  const approved = (await submitRaw(env, { name: "老已通过 logo", kind: "logo", category: "banks", bank: "ICBC", ip })).item;
+  await call(env, "/review/items", { method: "POST", token: PASSWORD, ip, payload: { action: "approve", id: approved.id, category: "banks", bank: "ICBC" } });
+  await dropKinds(env);
+
+  const pending = await (await call(env, "/review/items", { token: PASSWORD, ip })).json();
+  assert.deepEqual(pending.pendingByKind, { face: 0, logo: 1 }, "待审里应认出它是 Logo");
+  assert.equal(pending.items[0].kind, "logo", "条目视图给出推断后的类型");
+  const view = await (await call(env, "/review/catalog?kind=logo&category=banks", { token: PASSWORD, ip })).json();
+  assert.equal(view.items.some((entry) => entry.id === approved.id), true, "Logo 分类里应能看见它");
+  assert.equal(view.orphans, 0, "分类还在，不该算未归类");
+  assert.deepEqual(view.approvedByKind, { face: 0, logo: 1 });
+  assert.equal(view.counts["logo:banks"], 1, "分类计数按「类型:分类」给键");
+
+  const saved = await call(env, "/review/catalog", { method: "POST", token: PASSWORD, ip, payload: { action: "update-item", id: approved.id, name: "老已通过 logo", category: "banks", bank: "ICBC" } });
+  assert.equal(saved.status, 200, "保存修改应成功：旧分类能按推断类型对上");
+  const after = JSON.parse(new TextDecoder().decode(env.BUCKET.objects.get("records.json").bytes));
+  assert.equal(after.find((entry) => entry.id === approved.id).kind, "logo", "保存后类型被写回");
+  assert.equal(after.find((entry) => entry.id === waiting.id).kind, undefined, "没被保存的那条保持不变");
+});
+
+test("一键修正历史类型：按分类把 kind 写回记录", async () => {
+  const env = makeEnv();
+  const ip = "15.0.0.1";
+  await seedTinyCatalog(env);
+  const { item } = await submitRaw(env, { name: "历史 logo", kind: "logo", category: "banks", bank: "ICBC", ip });
+  await call(env, "/review/items", { method: "POST", token: PASSWORD, ip, payload: { action: "approve", id: item.id, category: "banks", bank: "ICBC" } });
+  await dropKinds(env);
+
+  const first = await (await call(env, "/review/catalog", { method: "POST", token: PASSWORD, ip, payload: { action: "fix-kinds" } })).json();
+  assert.equal(first.ok, true);
+  assert.equal(first.fixed, 1, "应修正 1 条");
+  const stored = JSON.parse(new TextDecoder().decode(env.BUCKET.objects.get("records.json").bytes));
+  assert.equal(stored.find((entry) => entry.id === item.id).kind, "logo");
+  const again = await (await call(env, "/review/catalog", { method: "POST", token: PASSWORD, ip, payload: { action: "fix-kinds" } })).json();
+  assert.equal(again.fixed, 0, "没有可修的就不写盘");
+});
