@@ -934,6 +934,7 @@ function fileToData(file) {
  document.querySelector("#photo").addEventListener("change", async (event) => {
    const file = event.target.files?.[0];
    if (!file) return;
+   if (file.size > 4 * 1024 * 1024) { showToast(copy().submitBig); event.target.value = ""; return; }
    if (items.length && !window.confirm(`${copy().replaceTitle}\n${copy().replaceText}`)) { event.target.value = ""; return; }
    try {
      uploadData = await fileToData(file);
@@ -972,6 +973,7 @@ function fileToData(file) {
  document.querySelector("#ref-file").addEventListener("change", async (event) => {
    const file = event.target.files?.[0];
    if (!file) return;
+   if (file.size > 4 * 1024 * 1024) { showToast(copy().submitBig); event.target.value = ""; return; }
    try { refImage = await readFile(file); }
    catch { showToast(copy().logoNeed); return; }
    refView = { scale: 1, x: 0.5, y: 0.5 };
@@ -980,7 +982,8 @@ function fileToData(file) {
  });
  document.querySelector("#bank-picker").addEventListener("change", renderLibrary);
  document.querySelector("#logo-file").addEventListener("change", async (event) => {
-   const files = [...event.target.files];
+   const files = [...event.target.files].filter((file) => file.size <= 4 * 1024 * 1024);
+   if (files.length !== event.target.files.length) showToast(copy().submitBig);
    for (const file of files) {
      addLogo({ name: file.name.replace(/\.[^.]+$/, ""), src: await fileToData(file), width: 150 });
    }
@@ -1223,6 +1226,9 @@ renderLogos();
        logoCategories = data.categories.filter((entry) => entry && entry.id && entry.kind === "logo");
        const logoNames = Object.fromEntries(logoCategories.map((entry) => [entry.id, entry.name]));
        groups.forEach((group) => { if (logoNames[group.id]) group.name = logoNames[group.id]; });
+       logoCategories.forEach((entry) => {
+         if (!groups.some((group) => group.id === entry.id)) groups.push({ id: entry.id, name: entry.name, marks: [] });
+       });
      }
      if (!faceCategories.some((entry) => entry.id === faceCategory) && faceCategories.length) faceCategory = faceCategories[0].id;
      applyLanguage();
@@ -1292,8 +1298,12 @@ renderLogos();
    const file = document.querySelector("#submit-file").files[0];
    const text = copy();
    const status = document.querySelector("#submit-status");
-   const allowed = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];
    status.hidden = false;
+   if (!document.querySelector("#submit-category").value) {
+     status.textContent = language === "zh" ? "当前没有可提交的分类。" : "No category is available yet.";
+     return;
+   }
+   const allowed = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];
    if (!file || (!allowed.includes(file.type) && !/\.(png|jpe?g|webp|svg)$/i.test(file.name))) {
      status.textContent = text.submitType;
      return;

@@ -149,7 +149,7 @@ function reviewPage() {
  async function reviewItems(request, env) {
    if (!(await authorized(request, env))) return new Response("unauthorized", { status: 401 });
   const items = await records(env);
-  return Response.json({ items: items.filter((item) => item.status !== "rejected") });
+   return Response.json({ items: items.filter((item) => item.status === "pending") });
 }
 
  async function reviewAction(request, env) {
@@ -223,11 +223,11 @@ function reviewPage() {
      if (!target) return Response.json({ error: "category" }, { status: 400 });
      const siblings = data.categories.filter((entry) => (entry.kind || "face") === (target.kind || "face") && entry.id !== target.id);
      data.categories = data.categories.filter((entry) => entry.id !== target.id);
-     if (siblings.length) {
-       const items = await records(env);
-       items.forEach((item) => { if (item.kind === (target.kind || "face") && item.category === target.id) item.category = siblings[0].id; });
-       await saveRecords(env, items);
-     }
+     const items = await records(env);
+     const matched = items.filter((item) => item.kind === (target.kind || "face") && item.category === target.id);
+     if (siblings.length) matched.forEach((item) => { item.category = siblings[0].id; });
+     else await Promise.all(matched.map((item) => env.BUCKET.delete(item.key)));
+     await saveRecords(env, siblings.length ? items : items.filter((item) => !matched.includes(item)));
    } else if (body.action === "move-category") {
      const index = data.categories.findIndex((entry) => entry.id === body.id);
      const next = index + (body.direction === "up" ? -1 : 1);
@@ -242,10 +242,15 @@ function reviewPage() {
      const allowed = data.categories.filter((entry) => (entry.kind || "face") === item.kind).map((entry) => entry.id);
      if (!allowed.includes(body.category)) return Response.json({ error: "category" }, { status: 400 });
      item.category = body.category;
-     if (item.kind === "logo" && body.category !== "banks") item.bank = "";
+     if (item.kind === "logo") item.bank = "";
      await saveRecords(env, items);
    } else if (body.action === "hide-face") {
-     if (!data.hidden.includes(body.id)) data.hidden.push(body.id);
+     const items = await records(env);
+     const item = items.find((entry) => entry.id === body.id);
+     if (item) {
+       await env.BUCKET.delete(item.key);
+       await saveRecords(env, items.filter((entry) => entry.id !== body.id));
+     }
    } else return Response.json({ error: "action" }, { status: 400 });
    await saveCatalog(env, data);
    return Response.json({ ok: true });
@@ -451,7 +456,6 @@ const PAGE = `<!doctype html>
    for (const item of data.items) {
      const card = document.createElement("article");
      const preview = document.createElement("img");
-     preview.alt = item.name;
      const file = await fetch("/review/file/" + item.id, { headers: auth() });
      if (file.ok) {
        const url = URL.createObjectURL(await file.blob());
@@ -460,16 +464,17 @@ const PAGE = `<!doctype html>
      }
      const form = document.createElement("form");
      const name = field("名称", "text", item.name);
-     const options = item.kind === "face" ? faceCats.slice() : logos.slice();
+     const options = data.categories.filter((entry) => (entry.kind || "face") === item.kind).map((entry) => [entry.id, entry.name]);
      if (!options.some(([id]) => id === item.category)) options.push([item.category, item.category]);
      const category = select("分类", options, item.category);
      const bank = field("银行编号", "text", item.bank || "");
-     const custom = field("自定义分类", "text", item.label || "");
-     bank.hidden = !(item.kind === "logo" && category.querySelector("select").value === "banks");
-     custom.hidden = category.querySelector("select").value !== "other";
-     category.querySelector("select").addEventListener("change", (event) => {
-       bank.hidden = !(item.kind === "logo" && event.target.value === "banks");
-       custom.hidden = event.target.value !== "other";
+     const custom = field("备注", "text", item.label || "");
+     const selected = () => data.categories.find((entry) => entry.id === category.querySelector("select").value);
+     bank.hidden = !(item.kind === "logo" && selected()?.name === "银行");
+     custom.hidden = selected()?.name !== "其他";
+     category.querySelector("select").addEventListener("change", () => {
+       bank.hidden = !(item.kind === "logo" && selected()?.name === "银行");
+       custom.hidden = selected()?.name !== "其他";
      });
      const row = document.createElement("div");
      row.className = "row";
