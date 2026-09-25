@@ -203,7 +203,7 @@ function reviewPage() {
  async function catalogGet(request, env) {
    if (!(await authorized(request, env))) return new Response("unauthorized", { status: 401 });
    const data = await catalog(env);
-   const items = (await records(env)).filter((item) => item.kind === "face" && item.status === "approved" && !data.hidden.includes(item.id));
+   const items = (await records(env)).filter((item) => item.status === "approved" && !data.hidden.includes(item.id));
    return Response.json({ categories: data.categories, items });
  }
  async function catalogAction(request, env) {
@@ -229,11 +229,13 @@ function reviewPage() {
      const [entry] = data.categories.splice(index, 1);
      data.categories.splice(next, 0, entry);
    } else if (body.action === "move-face") {
-     if (!data.categories.some((entry) => entry.id === body.category)) return Response.json({ error: "category" }, { status: 400 });
      const items = await records(env);
-     const item = items.find((entry) => entry.id === body.id && entry.kind === "face");
+     const item = items.find((entry) => entry.id === body.id);
      if (!item) return Response.json({ error: "missing" }, { status: 404 });
+     const allowed = item.kind === "face" ? data.categories.map((entry) => entry.id) : LOGO_CATS;
+     if (!allowed.includes(body.category)) return Response.json({ error: "category" }, { status: 400 });
      item.category = body.category;
+     if (item.kind === "logo" && body.category !== "banks") item.bank = "";
      await saveRecords(env, items);
    } else if (body.action === "hide-face") {
      if (!data.hidden.includes(body.id)) data.hidden.push(body.id);
@@ -298,7 +300,9 @@ const PAGE = `<!doctype html>
    section { padding: 16px; border: 1px solid #e4e8ee; border-radius: 18px; background: #fff; box-shadow: 0 10px 30px rgba(27,43,64,.06); }
    h2 { margin: 0 0 12px; font-size: 16px; }
    .cats, .add, .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-   .cat { display: flex; align-items: center; gap: 4px; padding: 4px 4px 4px 12px; border: 1px solid #e4e8ee; border-radius: 999px; background: #f8fafc; }
+   .cat { display: flex; align-items: center; gap: 4px; padding: 4px; border: 1px solid #e4e8ee; border-radius: 999px; background: #f8fafc; }
+   .cat.active { border-color: #1b2b40; background: #fff; }
+   .cat .name { background: transparent; font-weight: 650; }
    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 14px; }
    .card { overflow: hidden; border: 1px solid #e4e8ee; border-radius: 14px; background: #f8fafc; }
    .card img { display: block; width: 100%; height: 132px; object-fit: cover; background: #eef2f6; }
@@ -327,49 +331,64 @@ const PAGE = `<!doctype html>
  const logos = [["banks","银行"],["transit","交通联合"],["official","官方"],["payment","支付"]];
  const previews = [];
  function auth() { return { Authorization: "Bearer " + token }; }
- async function catalogSend(body) {
-   const response = await fetch("/review/catalog", { method: "POST", headers: { ...auth(), "Content-Type": "application/json" }, body: JSON.stringify(body) });
-   if (response.ok) await load();
+ function catalogSend(body) {
+   return fetch("/review/catalog", { method: "POST", headers: { ...auth(), "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((response) => { if (response.ok) return load(); });
  }
  function drawCatalog(data) {
    faceCats = data.categories.map((entry) => [entry.id, entry.name]);
+   const logoCats = [["banks","银行"],["transit","交通联合"],["official","官方"],["payment","支付"]];
+   const groups = [
+     ...data.categories.map((entry) => ({ id: entry.id, name: entry.name, kind: "face" })),
+     ...logoCats.map(([id, name]) => ({ id, name, kind: "logo" })),
+   ];
+   if (!groups.some((entry) => entry.kind + ":" + entry.id === openCategory)) openCategory = "face:" + data.categories[0].id;
+   const current = groups.find((entry) => entry.kind + ":" + entry.id === openCategory);
    const box = document.querySelector("#catalog");
    box.replaceChildren();
    const title = document.createElement("h2");
-   title.textContent = "卡面分类";
+   title.textContent = "分类内容";
    const note = document.createElement("p");
    note.className = "muted";
-   note.textContent = "这里的顺序就是网页上分类标签的顺序。待处理里的卡面分类会一起更新。";
+   note.textContent = "点一个分类，只看里面的卡面或 logo，也可以从网页删除。";
    const cats = document.createElement("div");
    cats.className = "cats";
-   data.categories.forEach((entry, index) => {
+   groups.forEach((entry) => {
      const row = document.createElement("div");
-     row.className = "cat";
-     const name = document.createElement("strong");
-     name.textContent = entry.name;
-     const up = document.createElement("button");
-     up.type = "button"; up.textContent = "上移"; up.disabled = index === 0;
-     up.addEventListener("click", () => catalogSend({ action: "move-category", id: entry.id, direction: "up" }));
-     const down = document.createElement("button");
-     down.type = "button"; down.textContent = "下移"; down.disabled = index === data.categories.length - 1;
-     down.addEventListener("click", () => catalogSend({ action: "move-category", id: entry.id, direction: "down" }));
-     const remove = document.createElement("button");
-     remove.type = "button"; remove.className = "no"; remove.textContent = "删除";
-     remove.addEventListener("click", () => catalogSend({ action: "remove-category", id: entry.id }));
-     row.append(name, up, down, remove);
+     row.className = "cat" + (entry === current ? " active" : "");
+     const open = document.createElement("button");
+     open.type = "button"; open.className = "name"; open.textContent = (entry.kind === "face" ? "卡面 · " : "Logo · ") + entry.name;
+     open.addEventListener("click", () => { openCategory = entry.kind + ":" + entry.id; drawCatalog(data); });
+     row.append(open);
+     if (entry.kind === "face") {
+       const index = data.categories.findIndex((item) => item.id === entry.id);
+       const up = document.createElement("button");
+       up.type = "button"; up.textContent = "上移"; up.disabled = index === 0;
+       up.addEventListener("click", () => catalogSend({ action: "move-category", id: entry.id, direction: "up" }));
+       const down = document.createElement("button");
+       down.type = "button"; down.textContent = "下移"; down.disabled = index === data.categories.length - 1;
+       down.addEventListener("click", () => catalogSend({ action: "move-category", id: entry.id, direction: "down" }));
+       const remove = document.createElement("button");
+       remove.type = "button"; remove.className = "no"; remove.textContent = "删除分类";
+       remove.addEventListener("click", () => catalogSend({ action: "remove-category", id: entry.id }));
+       row.append(up, down, remove);
+     }
      cats.append(row);
    });
    const add = document.createElement("form");
    add.className = "add";
    const input = document.createElement("input");
-   input.placeholder = "新分类名称"; input.maxLength = 16; input.required = true;
+   input.placeholder = "新的卡面分类"; input.maxLength = 16; input.required = true;
    const submit = document.createElement("button");
-   submit.className = "ok"; submit.textContent = "添加分类";
+   submit.className = "ok"; submit.textContent = "添加卡面分类";
    add.append(input, submit);
    add.addEventListener("submit", (event) => { event.preventDefault(); catalogSend({ action: "add-category", name: input.value }); });
+   const heading = document.createElement("h2");
+   heading.textContent = current.name;
    const cards = document.createElement("div");
    cards.className = "cards";
-   data.items.forEach((item) => {
+   const visible = data.items.filter((item) => item.kind === current.kind && item.category === current.id);
+   const choices = current.kind === "face" ? faceCats : logoCats;
+   visible.forEach((item) => {
      const card = document.createElement("article");
      card.className = "card";
      const preview = document.createElement("img");
@@ -378,23 +397,23 @@ const PAGE = `<!doctype html>
      const name = document.createElement("strong");
      name.textContent = item.name;
      const category = document.createElement("select");
-     faceCats.forEach(([id, text]) => category.append(Object.assign(document.createElement("option"), { value: id, textContent: text })));
-     if (faceCats.some(([id]) => id === item.category)) category.value = item.category;
-     category.addEventListener("change", () => catalogSend({ action: "move-face", id: item.id, category: category.value }));
+     choices.forEach(([id, text]) => category.append(Object.assign(document.createElement("option"), { value: id, textContent: text })));
+     category.value = current.id;
+     category.addEventListener("change", () => { openCategory = current.kind + ":" + category.value; catalogSend({ action: "move-face", id: item.id, category: category.value }); });
      const remove = document.createElement("button");
-     remove.type = "button"; remove.className = "no"; remove.textContent = "从网页删除";
+     remove.type = "button"; remove.className = "no"; remove.textContent = "删除";
      remove.addEventListener("click", () => catalogSend({ action: "hide-face", id: item.id }));
      body.append(name, category, remove);
      card.append(preview, body);
      cards.append(card);
    });
-   if (!data.items.length) {
+   if (!visible.length) {
      const empty = document.createElement("p");
      empty.className = "muted empty";
-     empty.textContent = "还没有已通过并显示在网页上的卡面。";
+     empty.textContent = "这个分类里还没有内容。";
      cards.append(empty);
    }
-   box.append(title, note, cats, add, cards);
+   box.append(title, note, cats, add, heading, cards);
  }
  async function load() {
    previews.forEach((url) => URL.revokeObjectURL(url));
