@@ -250,6 +250,8 @@ input[type="range"] { width: 100%; }
  .submit-form input, .submit-form select { min-height: 42px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); padding: 0 12px; }
  .submit-form input[type="file"] { padding: 8px 12px; }
  #submit-bank-row[hidden], #submit-custom-row[hidden] { display: none; }
+ .submit-form .submit-consent { display: flex; align-items: center; gap: 8px; font-size: 12px; line-height: 1.4; }
+ .submit-form .submit-consent input { min-height: auto; width: 16px; height: 16px; padding: 0; margin: 0; flex: 0 0 auto; }
  #submit-send { width: 100%; }
  #submit-send:disabled { opacity: 0.6; }
  .face-strip .faces { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); max-height: 168px; }
@@ -259,6 +261,8 @@ input[type="range"] { width: 100%; }
  .face span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--muted); }
  .face.active { border-color: var(--teal); box-shadow: 0 0 0 2px color-mix(in srgb, var(--teal) 35%, transparent); }
  .face-delete { position: absolute; top: 2px; right: 2px; z-index: 2; width: 22px; height: 22px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 50%; background: rgba(27, 43, 64, .72); color: #fff; }
+ .save-item { position: relative; display: grid; }
+ .save-item .face { width: 100%; }
  .face-delete svg { width: 12px; height: 12px; pointer-events: none; }
   .pick { border: 1px solid var(--line); border-radius: 999px; min-height: 36px; padding: 6px 14px; background: var(--panel); color: var(--ink); }
  .stage.hot { outline: 2px solid var(--teal); outline-offset: -8px; }

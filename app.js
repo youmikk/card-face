@@ -9,6 +9,23 @@ const CARD_W = 1536;
 const CARD_H = 969;
 const RADIUS = Math.round((3.18 / 85.6) * CARD_W);
 
+const INTAKE = "https://review.youmikk.me";
+const INTAKE_FILES = `${INTAKE}/files/`;
+
+/** 只允许站内素材、data:/blob: 与审核服务的图片地址，避免任意字符串进入 src。 */
+function safeSrc(src) {
+  const value = String(src == null ? "" : src).trim();
+  if (!value) return "";
+  if (/^(javascript|vbscript|file|data:text\/html|data:application\/xhtml)/i.test(value)) return "";
+  if (value.startsWith("assets/") || value.startsWith("data:") || value.startsWith("blob:")) return value;
+  if (value.startsWith(INTAKE_FILES)) return value;
+  return "";
+}
+
+function submitErrorText(code) {
+  const map = uiText[language].submitError || {};
+  return map[code] || copy().submitFailed;
+}
 const dictionaries = {
   zh: {
     styles: { flat: "直角", "flat-rounded": "圆角", logo: "标志", "logo-border": "描边", mono: "单色", "mono-outline": "线框" },
@@ -31,6 +48,8 @@ const dictionaries = {
      exportDone: "已开始下载",
      replaceTitle: "换卡面会清掉上面的 logo",
      replaceText: "当前摆放不会保留。要继续吗？",
+     openFailed: "这张保存的卡面暂时不可用，已改用缩略图。",
+     openBroken: "这个保存项打不开了，建议删掉后重试。",
      cardName: "卡面",
   },
   en: {
@@ -54,6 +73,8 @@ const dictionaries = {
      exportDone: "Download started",
      replaceTitle: "Changing the card removes its logos",
      replaceText: "The current layout will not be kept. Continue?",
+     openFailed: "That saved card is unavailable, showing its thumbnail instead.",
+     openBroken: "This saved card cannot be opened. Delete it and try again.",
      cardName: "Card",
   },
 };
@@ -61,6 +82,16 @@ const uiText = {
    zh: { title: "卡面设计生成器", theme: "深色", themeLight: "浅色", github: "GitHub 项目", support: "赞赏", afdian: "爱发电", wechatSupport: "微信赞赏码", close: "关闭", termsTitle: "使用条款", termsAccept: "我已阅读并同意", preview: "卡面预览", save: "保存", export: "导出 PNG", exportAll: "全部导出", savedCards: "保存区", emptyTitle: "上传一张图片作为卡面", emptyText: "图片会按 1.586 : 1 铺满并居中，之后可以缩放和拖动调整构图。", choose: "选择图片", requestFace: "提交卡面", rounded: "3.18 mm 圆角", dragCard: "拖动卡面", dragRef: "拖动参考图", resetZoom: "复原", clear: "清空", uploadLogo: "上传自己的 logo", requestLogo: "提交 logo", banks: "银行", cardImage: "卡面图片", dropCard: "拖拽图片到此处，或点击选择", refit: "重新匹配", zoom: "缩放", cardNote: "图片会等比缩放并居中填满卡面，超出部分自动裁掉。", saveNote: "点保存记下当前卡面。点缩略图可以再打开修改。只存在这台浏览器里。", reference: "参考图", dropRef: "拖拽参考图到此处，或点击选择", refHint: "只用于对位，不会出现在导出的 PNG 里", showRef: "显示参考图", opacity: "透明度", adjust: "调整", selectLogo: "点击卡面上的 logo 进行编辑", size: "大小", rotate: "旋转", lock: "锁定", up: "上移", down: "下移", delete: "删除", layers: "图层", noLogo: "暂无 logo", legal: "输出只是视觉设计文件，不代表任何机构发行的卡片。图标来自公开素材库，使用前请确认你有相应授权。", submitTitle: "提交", submitName: "名称", submitKind: "类型", submitCategory: "分类", submitCustom: "自定义分类", submitFile: "图片", submitSend: "发送", kindFace: "卡面", kindLogo: "Logo", catSolid: "纯色", catBank: "银行", catTransit: "交通", catOther: "其他", submitFaceNote: "不要提交带卡号、姓名或真实银行卡照片的图片。审核通过后才会公开。", submitLogoNote: "只提交你有权公开使用的标识。审核通过后才会公开。" },
    en: { title: "Card Design Generator", theme: "Dark", themeLight: "Light", github: "GitHub project", support: "Support", afdian: "Afdian", wechatSupport: "WeChat", close: "Close", termsTitle: "Terms of use", termsAccept: "I have read and agree", preview: "Card preview", save: "Save", export: "Export PNG", exportAll: "Export all", savedCards: "Saved", emptyTitle: "Upload an image for the card", emptyText: "The image fills the 1.586:1 card and can then be zoomed and dragged.", choose: "Choose image", requestFace: "Submit a card", rounded: "3.18 mm corners", dragCard: "Move card", dragRef: "Move reference", resetZoom: "Reset zoom", clear: "Clear", uploadLogo: "Upload your own logos", requestLogo: "Submit a logo", banks: "Banks", cardImage: "Card image", dropCard: "Drop an image here, or click to choose", refit: "Refit", zoom: "Zoom", cardNote: "The image is scaled and centered to fill the card. Overflow is cropped.", saveNote: "Save stores the current card. Open a thumbnail to edit it again. It stays in this browser only.", reference: "Reference", dropRef: "Drop a reference here, or click to choose", refHint: "Used for alignment only. It is not included in the PNG.", showRef: "Show reference", opacity: "Opacity", adjust: "Adjust", selectLogo: "Click a logo on the card to edit it", size: "Size", rotate: "Rotate", lock: "Lock", up: "Up", down: "Down", delete: "Delete", layers: "Layers", noLogo: "No logos yet", legal: "The output is a visual design file only. Logos come from public asset libraries; confirm permission before publishing.", submitTitle: "Submit", submitName: "Name", submitKind: "Type", submitCategory: "Category", submitCustom: "Custom category", submitFile: "Image", submitSend: "Send", kindFace: "Card", kindLogo: "Logo", catSolid: "Solid", catBank: "Bank", catTransit: "Transit", catOther: "Other", submitFaceNote: "Do not submit card numbers, names, or photos of real bank cards. It stays private until it is approved.", submitLogoNote: "Submit only marks you have the right to publish. It stays private until it is approved." },
 };
+uiText.zh.clearCard = "清空卡面";
+uiText.zh.clearRef = "清空参考图";
+uiText.zh.submitConsent = "我已阅读并同意第七条：提交的图片会上传到审核服务，通过后公开";
+uiText.zh.submitConsentNeed = "请先勾选确认第七条。";
+uiText.zh.submitError = { rate: "提交太频繁，请稍后再试。", big: "图片不能超过 4 MB。", size: "图片尺寸过大，请压缩后再提交。", svg: "这张 SVG 含有不安全内容，请清理后重试。", file: "请使用 PNG、JPG、WebP 或 SVG。", bank: "请选择有效的银行。", quota: "待审核内容已满，请稍后再试。", fields: "请把信息填写完整。", form: "提交格式有误，请重试。", server: "服务器出错，请稍后再试。" };
+uiText.en.clearCard = "Clear card";
+uiText.en.clearRef = "Clear reference";
+uiText.en.submitConsent = "I have read and agree to clause 7: submitted images go to the review service and become public once approved";
+uiText.en.submitConsentNeed = "Please tick the clause 7 confirmation first.";
+uiText.en.submitError = { rate: "Too many submissions. Try again later.", big: "The image must be 4 MB or smaller.", size: "The image dimensions are too large.", svg: "That SVG contains unsafe content.", file: "Use a PNG, JPG, WebP, or SVG.", bank: "Choose a valid bank.", quota: "The review queue is full. Try again later.", fields: "Please fill in every field.", form: "The submission was malformed.", server: "Server error. Try again later." };
 let language = localStorage.getItem("card-lang") || "zh";
 const copy = () => dictionaries[language];
 const terms = {
@@ -71,7 +102,7 @@ const terms = {
     ["四、素材库", "网站提供的银行、支付和交通标识只用于设计预览，不构成任何授权。公开使用前，请自行确认你有相应权利。"],
     ["五、禁止用途", "不得将本网站或其导出结果用于伪造、仿冒真实卡片，或用于欺诈、身份冒用、洗钱及其他违法活动。"],
     ["六、输出的性质", "导出的 PNG 只是视觉设计文件，不代表任何机构发行的支付卡、交通卡或其他凭证，也不能用于制作可交易或可验证的凭证。设计稿、艺术卡、收藏卡等非凭证用途不在此限。"],
-     ["七、本地处理", "图片处理和导出都在你的浏览器本地完成，上传内容不会发送到服务器。点保存后的卡面只存在这台浏览器里，清除站点数据后会消失。请自行保管导出结果。"],
+     ["七、本地处理与提交", "卡面编辑、参考图对位和导出 PNG 都在你的浏览器本地完成，不经过我们的服务器。只有你在「提交卡面 / 提交 logo」里主动发送的图片会上传到审核服务（review.youmikk.me）并保存在那里等待人工审核；通过后会公开出现在对应分类里，任何人都能查看和下载，未通过或尚未审核的内容不会公开。请不要提交卡号、姓名、证件或真实银行卡照片。如果想撤回已提交的内容，可以通过项目主页联系我们。点保存的卡面只存在这台浏览器里，清除站点数据后会消失，请自行保管导出结果。"],
     ["八、按现状提供", "本网站按现状提供，不对导出结果的合法性、准确性或适用性作出保证。"],
     ["九、条款变更", "本条款可能更新。更新后继续使用，即视为接受更新后的内容。"],
   ],
@@ -82,7 +113,7 @@ const terms = {
     ["4. The asset library", "Bank, payment, and transit marks supplied here are layout previews only. They are not a license, and you must confirm your own right before publishing them."],
     ["5. Prohibited use", "Do not use the site or its output to forge or imitate a real card, or for fraud, impersonation, money laundering, or any unlawful activity."],
     ["6. What the output is", "An exported PNG is only a visual design file. It is not an issued payment, transit, or other credential, and it must not be made into one that can be used for a transaction. Design drafts, art cards, and collectible cards are outside this limit."],
-     ["7. Local processing", "Editing and export happen in your browser. Uploads are not sent to a server. Cards you save stay in this browser until its site data is cleared. Keep your own copy of anything you export."],
+     ["7. Local processing and submissions", "Editing, alignment guides, and PNG export all happen in your browser and never touch our servers. Only images you actively send through \u201cSubmit a card\u201d or \u201cSubmit a logo\u201d are uploaded to the review service (review.youmikk.me) and stored there for manual review; once approved they appear publicly in that category and anyone can view or download them, while rejected or unreviewed content stays private. Do not submit card numbers, names, ID documents, or photos of real bank cards. Contact us through the project page if you want a submission removed. Cards you save stay in this browser until its site data is cleared; keep your own copy of anything you export."],
     ["8. Provided as is", "The site is provided as is, without any warranty that the output is lawful, accurate, or suitable for a particular purpose."],
     ["9. Changes", "These terms may be updated. Continuing to use the site after an update means you accept the updated terms."],
   ],
@@ -230,7 +261,12 @@ function faceImage(id) {
  let cardSource = null;
  let saveSeq = saves.reduce((max, entry) => Math.max(max, entry.seq || 0), 0);
  function faceName(face) { return language === "zh" ? face.zh : face.en; }
-let faceCategories = [{ id: "solid", name: "" }, { id: "bank", name: "" }, { id: "transit", name: "" }, { id: "other", name: "" }];
+let faceCategories = [
+  { id: "solid", name: "", kind: "face", role: "plain" },
+  { id: "bank", name: "", kind: "face", role: "plain" },
+  { id: "transit", name: "", kind: "face", role: "plain" },
+  { id: "other", name: "", kind: "face", role: "other" },
+];
 let logoCategories = [];
 let faceCategory = "solid";
  function renderFaces() {
@@ -273,26 +309,30 @@ let faceCategory = "solid";
      box.appendChild(note);
      return;
    }
-   [...saves].reverse().forEach((entry) => {
-     const button = document.createElement("button");
-     button.type = "button";
-     button.className = "face" + (activeSave === entry.id ? " active" : "");
-     const image = document.createElement("canvas");
-     image.width = 160;
-     image.height = 101;
-     paintSavedThumb(image, entry);
-     image.dataset.thumb = entry.thumb || "";
-     const label = document.createElement("span");
-     label.textContent = entry.name;
-     const remove = document.createElement("button");
-     remove.type = "button";
-     remove.className = "face-delete";
-     remove.setAttribute("aria-label", uiText[language].delete);
-     remove.innerHTML = `<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
-     remove.addEventListener("click", (event) => {
-       event.stopPropagation();
-       event.preventDefault();
-       saves = saves.filter((item) => item.id !== entry.id);
+  [...saves].reverse().forEach((entry) => {
+    const wrap = document.createElement("div");
+    wrap.className = "save-item";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "face" + (activeSave === entry.id ? " active" : "");
+    const image = document.createElement("canvas");
+    image.width = 160;
+    image.height = 101;
+    paintSavedThumb(image, entry);
+    image.dataset.thumb = entry.thumb || "";
+    const label = document.createElement("span");
+    label.textContent = entry.name;
+    button.append(image, label);
+    button.addEventListener("click", () => openSave(entry.id));
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "face-delete";
+    remove.setAttribute("aria-label", uiText[language].delete);
+    remove.innerHTML = `<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+    remove.addEventListener("click", (event) => {
+      event.stopPropagation();
+      event.preventDefault();
+      saves = saves.filter((item) => item.id !== entry.id);
       const wasOpen = activeSave === entry.id;
       if (wasOpen) {
         activeSave = null;
@@ -311,11 +351,9 @@ let faceCategory = "solid";
         renderFaces();
       }
     });
-     button.append(image, label);
-     button.addEventListener("click", () => openSave(entry.id));
-     button.append(remove);
-     box.appendChild(button);
-   });
+    wrap.append(button, remove);
+    box.appendChild(wrap);
+  });
  }
  function snapshot() {
    return {
@@ -327,14 +365,19 @@ let faceCategory = "solid";
      cardSource,
    };
  }
- function applySnapshot(saved) {
-   cardView = saved.cardView || { scale: 1, x: 0.5, y: 0.5 };
-   items = (saved.items || []).map((item) => ({ ...item }));
-   selected = null;
-   seq = Math.max(seq, saved.seq || 1, ...(items.length ? items.map((item) => item.id + 1) : [1]));
-   rounded = saved.rounded !== false;
-   document.querySelector("#rounded").checked = rounded;
- }
+function applySnapshot(saved) {
+  cardView = saved.cardView || { scale: 1, x: 0.5, y: 0.5 };
+  const raw = Array.isArray(saved.items) ? saved.items : [];
+  items = raw
+    .map((item) => ({ ...item, id: Number(item.id) }))
+    .filter((item) => Number.isFinite(item.id));
+  selected = null;
+  const next = items.map((item) => item.id + 1);
+  const savedSeq = Number(saved.seq);
+  seq = Math.max(seq, Number.isFinite(savedSeq) ? savedSeq : 1, ...(next.length ? next : [1]));
+  rounded = saved.rounded !== false;
+  document.querySelector("#rounded").checked = rounded;
+}
  let thumbToken = 0;
  function paintSavedThumb(canvas, entry) {
    const context = canvas.getContext("2d");
@@ -435,34 +478,51 @@ let faceCategory = "solid";
      return false;
    }
  }
- async function openSave(id) {
-   const entry = saves.find((item) => item.id === id);
-   if (!entry) return;
-   const state = entry.state || {};
-   if (String(state.cardSource || "").startsWith("face:")) {
-     uploadData = "";
-     cardImage = await faceImage(state.cardSource.slice(5));
-   }
-  else if (entry.image || entry.thumb) {
+async function openSave(id) {
+  const entry = saves.find((item) => item.id === id);
+  if (!entry) return;
+  const state = entry.state || {};
+  const savedSource = String(state.cardSource || "");
+  const loadOrNull = async (src) => {
+    if (!src) return null;
+    try { return await loadImage(src); } catch { return null; }
+  };
+  const loadFaceOrNull = async (faceId) => {
+    try { return await faceImage(faceId); } catch { return null; }
+  };
+  let nextSource = "thumb";
+  let image = null;
+  if (savedSource.startsWith("face:")) {
+    uploadData = "";
+    nextSource = savedSource; // 卡面暂时不可用时也保留来源，恢复后还能继续用
+    image = await loadFaceOrNull(savedSource.slice(5));
+    if (!image) {
+      image = await loadOrNull(entry.thumb);
+      if (image) showToast(copy().openFailed);
+    }
+  } else if (entry.image || entry.thumb) {
     uploadData = entry.image || "";
-    try { cardImage = await loadImage(entry.image || entry.thumb); }
-    catch {
-      uploadData = "";
-      if (!entry.thumb) { showToast(copy().logoNeed); return; }
-      try { cardImage = await loadImage(entry.thumb); }
-      catch { showToast(copy().logoNeed); return; }
+    nextSource = uploadData ? "upload" : "thumb";
+    image = await loadOrNull(entry.image);
+    if (!image) {
+      image = await loadOrNull(entry.thumb);
+      if (image) {
+        nextSource = "thumb";
+        uploadData = "";
+      }
     }
   }
-  else { showToast(copy().logoNeed); return; }
+  if (!image) { showToast(copy().openBroken); return; }
+  cardImage = image;
   activeSave = id;
   applySnapshot(state);
-  cardSource = uploadData || String(state.cardSource || "").startsWith("face:") ? (state.cardSource || "upload") : "thumb";
-   paint();
-   renderLogos();
-   syncLogoAvailability();
-   renderFaces();
-   renderSaves();
- }
+  cardSource = nextSource;
+  paint();
+  renderLogos();
+  syncLogoAvailability();
+  renderFaces();
+  renderSaves();
+}
 
 let groups = buildGroups();
 let marks = Object.fromEntries(groups.flatMap((group) => group.marks.map((mark) => [mark.id, mark])));
@@ -493,11 +553,11 @@ function roundedPath(context, width, height, radius) {
   context.closePath();
 }
 
-function paintImage(context, image, view) {
+function paintImage(context, image, view, useRound = rounded) {
   context.clearRect(0, 0, CARD_W, CARD_H);
   if (!image) return;
   context.save();
-  if (rounded) {
+  if (useRound) {
     roundedPath(context, CARD_W, CARD_H, RADIUS);
     context.clip();
   }
@@ -568,14 +628,23 @@ function logoButton(mark, name) {
   const button = document.createElement("button");
   button.type = "button";
   button.className = "lib-btn";
-  button.innerHTML = `<img src="${mark.src}" alt="" /><span>${mark.name}</span>`;
+  const image = document.createElement("img");
+  const src = safeSrc(mark.src);
+  if (src) image.src = src;
+  image.alt = "";
+  image.loading = "lazy";
+  const label = document.createElement("span");
+  label.textContent = mark.name;
+  button.append(image, label);
   button.addEventListener("click", () => addLogo({ name, src: mark.src, width: mark.width }));
   return button;
 }
 
 function addLogo({ name, src, width }) {
   if (!cardImage) { remindCardFirst(); return; }
-  const item = { id: seq++, name, src, x: 78, y: 78 - (items.length % 4) * 14, width, rotate: 0, opacity: 1, locked: false };
+  const safe = safeSrc(src);
+  if (!safe) return;
+  const item = { id: seq++, name, src: safe, x: 78, y: 78 - (items.length % 4) * 14, width, rotate: 0, opacity: 1, locked: false };
   items.push(item);
   selected = item.id;
   renderLogos();
@@ -591,7 +660,8 @@ function renderLogos() {
     node.style.opacity = item.opacity;
     node.style.transform = `translate(-50%, -50%) rotate(${item.rotate}deg)`;
     const image = document.createElement("img");
-    image.src = item.src;
+    const src = safeSrc(item.src);
+    if (src) image.src = src;
     image.alt = item.name;
     image.draggable = false;
     node.append(image);
@@ -823,6 +893,7 @@ card.addEventListener("pointermove", (event) => {
       item.rotate = Math.round(drag.startRotate + ((angle - drag.startAngle) * 180) / Math.PI);
     }
     const node = layers.querySelector(".badge.selected");
+    if (!node) return;
     node.style.width = item.width + "px";
     node.style.transform = `translate(-50%, -50%) rotate(${item.rotate}deg)`;
     syncEditor();
@@ -917,14 +988,19 @@ document.querySelector("#layer-down").addEventListener("click", () => moveLayer(
    renderLogos();
  }
 
- function readFile(file) {
-   return new Promise((resolve, reject) => {
-     const image = new Image();
-     image.onload = () => resolve(image);
-     image.onerror = () => reject(new Error("image"));
-     image.src = URL.createObjectURL(file);
-   });
- }
+function readFile(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    const done = (callback) => {
+      URL.revokeObjectURL(url);
+      callback();
+    };
+    image.onload = () => done(() => resolve(image));
+    image.onerror = () => done(() => reject(new Error("image")));
+    image.src = url;
+  });
+}
 function fileToData(file) {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -982,13 +1058,15 @@ function fileToData(file) {
    paint();
  });
  document.querySelector("#bank-picker").addEventListener("change", renderLibrary);
- document.querySelector("#logo-file").addEventListener("change", async (event) => {
-   const files = [...event.target.files].filter((file) => file.size <= 4 * 1024 * 1024);
-   if (files.length !== event.target.files.length) showToast(copy().submitBig);
-   for (const file of files) {
-     addLogo({ name: file.name.replace(/\.[^.]+$/, ""), src: await fileToData(file), width: 150 });
-   }
- });
+document.querySelector("#logo-file").addEventListener("change", async (event) => {
+  const input = event.target;
+  const files = [...input.files].filter((file) => file.size <= 4 * 1024 * 1024);
+  if (files.length !== input.files.length) showToast(copy().submitBig);
+  input.value = "";
+  for (const file of files) {
+    addLogo({ name: file.name.replace(/\.[^.]+$/, ""), src: await fileToData(file), width: 150 });
+  }
+});
  ["#ref-file", "#logo-file"].forEach((selector) => {
    const input = document.querySelector(selector);
    const zone = input.parentElement;
@@ -1003,15 +1081,18 @@ function fileToData(file) {
    });
  });
 document.querySelector("#reset-zoom").addEventListener("click", () => {
-  const view = dragMode === "reference" ? refView : cardView;
-  view.scale = 1;
+  if (dragMode === "reference") refView = { scale: 1, x: 0.5, y: 0.5 };
+  else cardView = { scale: 1, x: 0.5, y: 0.5 };
   paint();
 });
 document.querySelector("#clear").addEventListener("click", () => {
   refImage = null;
   refView = { scale: 1, x: 0.5, y: 0.5 };
+  refVisible = true;
+  document.querySelector("#ref-file").value = "";
   paint();
 });
+document.querySelector("#clear-card").addEventListener("click", blankCard);
 async function renderCardBlob(image, view, logoItems, useRound) {
   const out = document.createElement("canvas");
   out.width = CARD_W;
@@ -1021,7 +1102,7 @@ async function renderCardBlob(image, view, logoItems, useRound) {
     roundedPath(context, CARD_W, CARD_H, RADIUS);
     context.clip();
   }
-  paintImage(context, image, view);
+  paintImage(context, image, view, useRound);
   const scale = CARD_W / Math.max(card.clientWidth, 1);
   for (const item of logoItems) {
     let logo;
@@ -1059,7 +1140,9 @@ function showToast(message) {
    exportCard();
  });
 function exportCard() {
-  renderCardBlob(cardImage, cardView, items, rounded).then((blob) => downloadBlob(blob, "card-face.png"));
+  renderCardBlob(cardImage, cardView, items, rounded)
+    .then((blob) => downloadBlob(blob, "card-face.png"))
+    .catch(() => showToast(copy().exportFailed));
 }
  async function saveCard() {
    if (!cardImage) { remindCardFirst(); return; }
@@ -1123,14 +1206,22 @@ document.querySelector("#save-card").addEventListener("click", saveCard);
  }
  document.querySelector("#export-all").addEventListener("click", exportAll);
 
+const IMAGE_CACHE_LIMIT = 60;
+function cacheImage(src, image) {
+  imageCache[src] = image;
+  const keys = Object.keys(imageCache);
+  if (keys.length > IMAGE_CACHE_LIMIT) delete imageCache[keys[0]];
+}
 function loadImage(src) {
-  if (imageCache[src]) return Promise.resolve(imageCache[src]);
+  const safe = safeSrc(src);
+  if (!safe) return Promise.reject(new Error("unsafe src"));
+  if (imageCache[safe]) return Promise.resolve(imageCache[safe]);
   return new Promise((resolve, reject) => {
     const image = new Image();
     image.crossOrigin = "anonymous";
-    image.onload = () => { imageCache[src] = image; resolve(image); };
-    image.onerror = reject;
-    image.src = src;
+    image.onload = () => { cacheImage(safe, image); resolve(image); };
+    image.onerror = () => reject(new Error("image"));
+    image.src = safe;
   });
 }
 function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
@@ -1177,8 +1268,10 @@ function applyLanguage() {
   groups = buildGroups();
   logoCategories.forEach((entry) => {
     const group = groups.find((item) => item.id === entry.id);
-    if (group) group.name = entry.name || group.name;
-    else groups.push({ id: entry.id, name: entry.name || entry.id, marks: [] });
+    if (group) { group.name = entry.name || group.name; return; }
+    // 没有内容的新分类不占标签页，等它被审核通过后再出现
+    const hasMarks = approved.some((item) => item.kind === "logo" && item.category === entry.id);
+    if (hasMarks) groups.push({ id: entry.id, name: entry.name || entry.id, marks: [] });
   });
   applyApproved();
   marks = Object.fromEntries(groups.flatMap((group) => group.marks.map((mark) => [mark.id, mark])));
@@ -1220,7 +1313,6 @@ document.querySelector("#terms-sheet").hidden = localStorage.getItem("card-terms
 applyLanguage();
 paint();
 renderLogos();
-const INTAKE = "https://review.youmikk.me";
 async function loadApproved() {
   try {
     const response = await fetch(`${INTAKE}/manifest`);
@@ -1237,10 +1329,15 @@ async function loadApproved() {
     applyLanguage();
   } catch {}
 }
- function submitCategories(kind) {
-   if (kind === "face") return faceCategories.map((entry) => [entry.id, entry.name || entry.id]);
-   return logoCategories.map((entry) => [entry.id, entry.name || entry.id]);
- }
+function categoryLabel(entry) {
+  if (entry.name) return entry.name;
+  const fallback = { solid: "catSolid", bank: "catBank", transit: "catTransit", other: "catOther" };
+  return uiText[language][fallback[entry.id]] || entry.id;
+}
+function submitCategories(kind) {
+  const list = kind === "face" ? faceCategories : logoCategories;
+  return list.map((entry) => [entry.id, categoryLabel(entry)]);
+}
  function fillSubmitForm() {
    const text = uiText[language];
    const kind = document.querySelector("#submit-kind");
@@ -1272,12 +1369,15 @@ async function loadApproved() {
        bank.appendChild(option);
      });
    }
-   document.querySelector("#submit-bank-row").hidden = !(kind.value === "logo" && category.selectedOptions[0]?.textContent === "银行");
-   const custom = document.querySelector("#submit-custom");
-   document.querySelector("#submit-custom-row").hidden = category.selectedOptions[0]?.textContent !== "其他";
-   custom.required = category.selectedOptions[0]?.textContent === "其他";
-   custom.placeholder = kind.value === "face" ? "例如：银行卡" : "例如：地铁";
-   document.querySelector("#submit-note").textContent = kind.value === "face" ? text.submitFaceNote : text.submitLogoNote;
+  const list = kind.value === "face" ? faceCategories : logoCategories;
+  const entry = list.find((item) => item.id === category.value) || null;
+  const role = entry && entry.role ? entry.role : "plain";
+  document.querySelector("#submit-bank-row").hidden = !(kind.value === "logo" && role === "bank");
+  const custom = document.querySelector("#submit-custom");
+  document.querySelector("#submit-custom-row").hidden = role !== "other";
+  custom.required = role === "other";
+  custom.placeholder = kind.value === "face" ? "例如：银行卡" : "例如：地铁";
+  document.querySelector("#submit-note").textContent = kind.value === "face" ? text.submitFaceNote : text.submitLogoNote;
  }
  function openSubmit(kind) {
    document.querySelector("#submit-kind").value = kind;
@@ -1305,6 +1405,10 @@ async function loadApproved() {
      status.textContent = language === "zh" ? "当前没有可提交的分类。" : "No category is available yet.";
      return;
    }
+  if (!document.querySelector("#submit-consent").checked) {
+    status.textContent = uiText[language].submitConsentNeed;
+    return;
+  }
    const allowed = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];
    if (!file || (!allowed.includes(file.type) && !/\.(png|jpe?g|webp|svg)$/i.test(file.name))) {
      status.textContent = text.submitType;
@@ -1323,16 +1427,21 @@ async function loadApproved() {
    body.set("file", file);
    const send = document.querySelector("#submit-send");
    send.disabled = true;
-   try {
-     const response = await fetch(`${INTAKE}/submit`, { method: "POST", body });
-     if (!response.ok) throw new Error("submit");
-     status.textContent = text.submitSent;
-     document.querySelector("#submit-form").reset();
-     fillSubmitForm();
-   } catch {
-     status.textContent = text.submitFailed;
-   } finally {
-     send.disabled = false;
-   }
+  try {
+    const response = await fetch(`${INTAKE}/submit`, { method: "POST", body });
+    if (!response.ok) {
+      const info = await response.json().catch(() => null);
+      status.textContent = submitErrorText(info && info.error);
+      return;
+    }
+    status.textContent = text.submitSent;
+    document.querySelector("#submit-form").reset();
+    document.querySelector("#submit-consent").checked = false;
+    fillSubmitForm();
+  } catch {
+    status.textContent = text.submitFailed;
+  } finally {
+    send.disabled = false;
+  }
  });
  loadApproved();

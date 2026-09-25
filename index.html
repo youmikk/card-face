@@ -3,10 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta http-equiv="Cache-Control" content="no-cache" />
   <title>卡面设计生成器</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-   <link rel="stylesheet" href="styles.css?v=20260925c" />
+  <link rel="stylesheet" href="styles.css?v=20260926a" />
 </head>
 <body>
   <header class="bar">
@@ -58,7 +57,8 @@
           <button type="button" id="reset-zoom" class="quiet icon-action" data-i18n-label="resetZoom" aria-label="复原">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 12a8 8 0 1 0 2.3-5.6M4 4v5h5"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M9 12h6"/></svg>
           </button>
-          <button type="button" id="clear" class="quiet" data-i18n="clear">清空</button>
+          <button type="button" id="clear-card" class="quiet" data-i18n="clearCard">清空卡面</button>
+          <button type="button" id="clear" class="quiet" data-i18n="clearRef">清空参考图</button>
         </div>
       </div>
       <div class="pickers">
@@ -148,6 +148,7 @@
         <label id="submit-custom-row" hidden><span data-i18n="submitCustom">自定义分类</span><input id="submit-custom" type="text" maxlength="24" placeholder="例如：银行卡" /></label>
         <label><span data-i18n="submitFile">图片</span><input id="submit-file" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml,.svg" required /></label>
         <p class="note" id="submit-note"></p>
+        <label class="check submit-consent"><input id="submit-consent" type="checkbox" /> <span data-i18n="submitConsent">我已阅读并同意第七条：提交的图片会上传到审核服务，通过后公开</span></label>
         <p class="note" id="submit-status" hidden></p>
         <button type="submit" class="export" id="submit-send" data-i18n="submitSend">发送</button>
       </form>
@@ -165,6 +166,6 @@
       </figure>
     </div>
   </div>
-  <script src="app.js?v=20260925g"></script>
+  <script src="app.js?v=20260926a"></script>
  </body>
 </html>
