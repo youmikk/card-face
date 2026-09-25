@@ -1220,18 +1220,18 @@ renderLogos();
      approved = Array.isArray(data.items) ? data.items : [];
      if (Array.isArray(data.categories)) {
        faceCategories = data.categories.filter((entry) => entry && entry.id && (entry.kind || "face") === "face");
-       const logoNames = Object.fromEntries(data.categories.filter((entry) => entry.kind === "logo").map((entry) => [entry.id, entry.name]));
+       logoCategories = data.categories.filter((entry) => entry && entry.id && entry.kind === "logo");
+       const logoNames = Object.fromEntries(logoCategories.map((entry) => [entry.id, entry.name]));
        groups.forEach((group) => { if (logoNames[group.id]) group.name = logoNames[group.id]; });
      }
      if (!faceCategories.some((entry) => entry.id === faceCategory) && faceCategories.length) faceCategory = faceCategories[0].id;
      applyLanguage();
    } catch {}
  }
+ let logoCategories = [];
  function submitCategories(kind) {
-   const text = uiText[language];
-   if (kind === "face") return [["solid", text.catSolid], ["bank", text.catBank], ["transit", text.catTransit], ["other", text.catOther]];
-   const brands = copy();
-   return [["banks", brands.groups.banks], ["transit", brands.groups.transit], ["official", brands.groups.official], ["payment", brands.groups.payment]];
+   if (kind === "face") return faceCategories.map((entry) => [entry.id, entry.name || entry.id]);
+   return logoCategories.map((entry) => [entry.id, entry.name || entry.id]);
  }
  function fillSubmitForm() {
    const text = uiText[language];

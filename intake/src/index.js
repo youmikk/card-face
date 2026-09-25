@@ -332,10 +332,13 @@ const PAGE = `<!doctype html>
  </main>
  <script>
  let token = "";
- let faceCats = [["solid","纯色"],["bank","银行"],["transit","交通"],["other","其他"]];
- const logos = [["banks","银行"],["transit","交通联合"],["official","官方"],["payment","支付"]];
+ let openCategory = "";
+ let faceCats = [];
  const previews = [];
  function auth() { return { Authorization: "Bearer " + token }; }
+ function catalogSend(body) {
+   return fetch("/review/catalog", { method: "POST", headers: { ...auth(), "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((response) => { if (response.ok) return load(); });
+ }
  function drawCatalog(data) {
    data.categories.forEach((entry) => { entry.kind = entry.kind || "face"; });
    faceCats = data.categories.filter((entry) => entry.kind === "face").map((entry) => [entry.id, entry.name]);
