@@ -64,6 +64,7 @@ async function route(request, env) {
   if (url.pathname === "/review" && request.method === "GET") return reviewPage();
   if (url.pathname === "/review/password" && request.method === "GET") return passwordState(env);
   if (url.pathname === "/review/password" && request.method === "POST") return passwordSet(request, env);
+  if (url.pathname === "/review/password" && request.method === "DELETE") return passwordClear(request, env);
   if (url.pathname === "/review/catalog" && request.method === "GET") return catalogGet(request, env);
   if (url.pathname === "/review/catalog" && request.method === "POST") return catalogAction(request, env);
   if (url.pathname === "/review/items" && request.method === "GET") return reviewItems(request, env);
@@ -218,6 +219,17 @@ async function passwordSet(request, env) {
   return json({ ok: true });
 }
 
+/**
+ * 清除 R2 里的口令哈希，让口令重新由 REVIEW_PASSWORD 控制。
+ * 必须先通过当前口令认证，否则等于给任何人关闭后台的机会。
+ */
+async function passwordClear(request, env) {
+  const guardResult = await guard(request, env);
+  if (guardResult.error) return guardResult.error;
+  await env.BUCKET.delete(PASSWORD_KEY);
+  return json({ ok: true, source: String(env.REVIEW_PASSWORD || "").trim() ? "env" : "none" });
+}
+
 /* ------------------------------------------------------------ 存储读写 */
 
 let conditionalWrites = null; // null = 未知，true/false = 探测结果
@@ -229,7 +241,10 @@ function conditionFailure(error) {
 
 function unsupportedCondition(error) {
   const message = String((error && error.message) || error);
-  return /not (supported|implemented)|invalid (argument|option)|unknown|onlyif/i.test(message);
+  // 必须同时提到 onlyIf/etag/conditional，并且是「不支持/参数非法」这类签名，
+  // 否则普通的瞬时错误会被误判成降级条件，永久关掉乐观锁。
+  if (!/(onlyif|etag|conditional|condition)/i.test(message)) return false;
+  return /not (supported|implemented)|invalid (argument|option|parameter)|unsupported|unrecognized/i.test(message);
 }
 
 async function readJson(env, key, fallback) {
@@ -253,7 +268,8 @@ async function putJson(env, key, data, etag) {
     } catch (error) {
       if (conditionFailure(error)) return false;
       if (!unsupportedCondition(error)) throw error;
-      conditionalWrites = false; // 运行时不支持条件写：降级为普通写（见 README）
+      conditionalWrites = false; // 运行时不支持条件写：降级为无锁写入（见 README）
+      console.warn("intake: R2 条件写不可用，已降级为无锁写入：", String((error && error.message) || error));
     }
   }
   await env.BUCKET.put(key, body, { httpMetadata: meta });
@@ -295,12 +311,6 @@ function catalog(env) {
 
 function mutateCatalog(env, mutator) {
   return mutateJson(env, CATALOG_KEY, catalogDefault, (data) => mutator(normalizeCatalog(data)));
-}
-
-function saveCatalog(env, data) {
-  return env.BUCKET.put(CATALOG_KEY, JSON.stringify(data), {
-    httpMetadata: { contentType: "application/json" },
-  });
 }
 
 function legacyRole(category) {
@@ -399,7 +409,7 @@ function imageSize(type, bytes) {
       const marker = bytes[offset + 1];
       if (marker === 0xd8 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) { offset += 2; continue; }
       const length = be16(bytes, offset + 2);
-      if (length < 2) return null;
+      if (length < 2) return { invalid: true };
       const isSof = marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc;
       if (isSof) return { height: be16(bytes, offset + 5), width: be16(bytes, offset + 7) };
       if (marker === 0xda) return null;
@@ -430,6 +440,7 @@ function imageSize(type, bytes) {
 
 function tooLarge(size) {
   if (!size) return false;
+  if (size.invalid) return true; // 结构损坏时按不可信处理，避免绕过像素上限
   return size.width > MAX_SIDE || size.height > MAX_SIDE || size.width * size.height > MAX_PIXELS;
 }
 
@@ -598,9 +609,13 @@ async function reviewAction(request, env) {
   const outcome = await mutateRecords(env, async (items) => {
     const item = items.find((entry) => entry.id === body.id);
     if (!item) return { commit: false, result: { error: "missing", status: 404 } };
+    // 只处理待审条目：已通过的要用「隐藏」（软删除），否则会删掉线上文件且无法恢复；
+    // 被拒绝的条目文件已删除，也不能再通过。
+    if (item.status !== STATUS.pending) return { commit: false, result: { error: "state", status: 409 } };
     if (body.action === "reject") {
       const key = item.key || "";
       item.status = STATUS.rejected;
+      item.rejectedAt = Date.now();
       item.key = "";
       return { commit: true, result: { ok: true, key } };
     }
@@ -611,11 +626,12 @@ async function reviewAction(request, env) {
     if (target.role === "bank" && !/^[A-Za-z0-9_-]{2,16}$/.test(String(body.bank || ""))) {
       return { commit: false, result: { error: "bank", status: 400 } };
     }
+    if (!item.key) return { commit: false, result: { error: "file", status: 404 } };
     item.category = target.id;
     item.bank = target.role === "bank" ? String(body.bank || "") : "";
     if (body.name) item.name = String(body.name).trim().slice(0, 40) || item.name;
     item.label = label;
-    // 通过后把对象从 pending/ 迁到 approved/（幂等：重复执行不会出错）
+    // 通过后把对象从 pending/ 迁到 approved/（幂等：重试时源已不在则接受已迁移的目标）
     const next = `approved/${item.id}.${item.type}`;
     if (item.key !== next) {
       const object = await env.BUCKET.get(item.key);
@@ -628,6 +644,8 @@ async function reviewAction(request, env) {
       item.key = next;
     }
     item.status = STATUS.approved;
+    delete item.hiddenAt;
+    delete item.hiddenFrom;
     return { commit: true, result: { ok: true, key: item.id } };
   });
   if (outcome && outcome.error) return json({ error: outcome.error }, outcome.status);
@@ -642,79 +660,9 @@ async function catalogAction(request, env) {
   if (guardResult.error) return guardResult.error;
   const body = await request.json().catch(() => null);
   if (!body || !body.action) return json({ error: "fields" }, 400);
-  const data = await catalog(env);
-  let result = { ok: true };
-
-  if (body.action === "add-category" || body.action === "rename-category") {
-    const name = String(body.name || "").trim().slice(0, 16);
-    if (!name) return json({ error: "name" }, 400);
-    const role = ROLES.includes(body.role) ? body.role : "plain";
-    if (body.action === "rename-category") {
-      const target = data.categories.find((entry) => entry.id === body.id);
-      if (!target) return json({ error: "category" }, 400);
-      target.name = name;
-    } else {
-      let newId = "";
-      do { newId = crypto.randomUUID().replace(/-/g, "").slice(0, 12); } while (data.categories.some((entry) => entry.id === newId));
-      data.categories.push({
-        id: newId,
-        name,
-        kind: body.kind === "logo" ? "logo" : "face",
-        role,
-      });
-    }
-  } else if (body.action === "set-role") {
-    const target = data.categories.find((entry) => entry.id === body.id);
-    if (!target) return json({ error: "category" }, 400);
-    if (!ROLES.includes(body.role)) return json({ error: "role" }, 400);
-    target.role = body.role;
-  } else if (body.action === "remove-category") {
-    const target = data.categories.find((entry) => entry.id === body.id);
-    if (!target) return json({ error: "category" }, 400);
-    const all = await records(env);
-    const affected = all.filter((item) => item.kind === target.kind && item.category === target.id);
-    if (body.confirm !== true) {
-      return json({ ok: false, needConfirm: true, affected: { items: affected.length, hidden: true } });
-    }
-    const siblings = data.categories.filter((entry) => entry.kind === target.kind && entry.id !== target.id);
-    const hiddenIds = [];
-    await mutateRecords(env, (items) => {
-      let touched = false;
-      items.forEach((item) => {
-        if (item.kind !== target.kind || item.category !== target.id) return;
-        item.category = siblings.length ? siblings[0].id : "";
-        item.status = STATUS.hidden;
-        hiddenIds.push(item.id);
-        touched = true;
-      });
-      return touched ? { commit: true } : { commit: false };
-    });
-    data.categories = data.categories.filter((entry) => entry.id !== target.id);
-    data.hidden = [...new Set([...data.hidden, ...hiddenIds])];
-  } else if (body.action === "restore-item") {
-    const outcome = await mutateRecords(env, (items) => {
-      const item = items.find((entry) => entry.id === body.id);
-      if (!item) return { commit: false, result: { error: "missing", status: 404 } };
-      if (item.status !== STATUS.hidden) return { commit: false, result: { error: "state", status: 400 } };
-      const exists = item.category && data.categories.some((entry) => entry.id === item.category && entry.kind === item.kind);
-      if (!exists) {
-        const fallback = data.categories.find((entry) => entry.kind === item.kind);
-        if (!fallback) return { commit: false, result: { error: "category", status: 400 } };
-        item.category = fallback.id;
-      }
-      item.status = STATUS.approved;
-      return { commit: true, result: { ok: true } };
-    });
-    if (outcome && outcome.error) return json({ error: outcome.error }, outcome.status);
-    data.hidden = data.hidden.filter((id) => id !== body.id);
-  } else if (body.action === "move-category") {
-    const index = data.categories.findIndex((entry) => entry.id === body.id);
-    const next = index + (body.direction === "up" ? -1 : 1);
-    if (index < 0 || next < 0 || next >= data.categories.length) return json({ error: "move" }, 400);
-    if (data.categories[index].kind !== data.categories[next].kind) return json({ error: "move" }, 400);
-    const [entry] = data.categories.splice(index, 1);
-    data.categories.splice(next, 0, entry);
-  } else if (body.action === "move-face") {
+  // 只改记录的动作各用自己的乐观锁，不必整份重写分类
+  if (body.action === "move-face") {
+    const data = await catalog(env);
     const outcome = await mutateRecords(env, (items) => {
       const item = items.find((entry) => entry.id === body.id);
       if (!item) return { commit: false, result: { error: "missing", status: 404 } };
@@ -726,7 +674,8 @@ async function catalogAction(request, env) {
     });
     if (outcome && outcome.error) return json({ error: outcome.error }, outcome.status);
     return json({ ok: true });
-  } else if (body.action === "rename-item") {
+  }
+  if (body.action === "rename-item") {
     const name = String(body.name || "").trim().slice(0, 40);
     if (!name) return json({ error: "name" }, 400);
     const outcome = await mutateRecords(env, (items) => {
@@ -737,48 +686,143 @@ async function catalogAction(request, env) {
     });
     if (outcome && outcome.error) return json({ error: outcome.error }, outcome.status);
     return json({ ok: true });
-  } else if (body.action === "hide-item" || body.action === "hide-face") {
-    const outcome = await mutateRecords(env, (items) => {
-      const item = items.find((entry) => entry.id === body.id);
-      if (!item) return { commit: false, result: { error: "missing", status: 404 } };
-      item.status = STATUS.hidden;
-      return { commit: true, result: { ok: true } };
-    });
-    if (outcome && outcome.error) return json({ error: outcome.error }, outcome.status);
-    data.hidden = [...new Set([...data.hidden, String(body.id)])];
-  } else {
-    return json({ error: "action" }, 400);
   }
-
-  await saveCatalog(env, data);
-  return json(result);
+  // 其余动作会改动 catalog.json，全部走乐观锁；mutator 内的记录改动是幂等的，
+  // 冲突重试时重复执行不会产生额外副作用。
+  const outcome = await mutateCatalog(env, async (data) => {
+    const fail = (error, status) => ({ commit: false, result: { error, status } });
+    if (body.action === "add-category" || body.action === "rename-category") {
+      const name = String(body.name || "").trim().slice(0, 16);
+      if (!name) return fail("name", 400);
+      const role = ROLES.includes(body.role) ? body.role : "plain";
+      if (body.action === "rename-category") {
+        const target = data.categories.find((entry) => entry.id === body.id);
+        if (!target) return fail("category", 400);
+        target.name = name;
+      } else {
+        let newId = "";
+        do { newId = crypto.randomUUID().replace(/-/g, "").slice(0, 12); } while (data.categories.some((entry) => entry.id === newId));
+        data.categories.push({ id: newId, name, kind: body.kind === "logo" ? "logo" : "face", role });
+      }
+      return { commit: true, result: { ok: true } };
+    }
+    if (body.action === "set-role") {
+      const target = data.categories.find((entry) => entry.id === body.id);
+      if (!target) return fail("category", 400);
+      if (!ROLES.includes(body.role)) return fail("role", 400);
+      target.role = body.role;
+      return { commit: true, result: { ok: true } };
+    }
+    if (body.action === "remove-category") {
+      const target = data.categories.find((entry) => entry.id === body.id);
+      if (!target) return fail("category", 400);
+      if (body.confirm !== true) {
+        const all = await records(env);
+        const affected = all.filter((item) => item.kind === target.kind && item.category === target.id);
+        return { commit: false, result: { ok: false, needConfirm: true, affected: { items: affected.length, hidden: true } } };
+      }
+      const siblings = data.categories.filter((entry) => entry.kind === target.kind && entry.id !== target.id);
+      const hiddenIds = (await mutateRecords(env, (items) => {
+        const moved = [];
+        items.forEach((item) => {
+          if (item.kind !== target.kind) return;
+          if (item.category === target.id) {
+            item.category = siblings.length ? siblings[0].id : "";
+            item.status = STATUS.hidden;
+            item.hiddenAt = Date.now();
+            item.hiddenFrom = target.id;
+          }
+          // 重试路径上条目已迁移过，靠 hiddenFrom 仍能把它记回隐藏清单
+          if (item.status === STATUS.hidden && item.hiddenFrom === target.id) moved.push(item.id);
+        });
+        return { commit: moved.length > 0, result: moved };
+      })) || [];
+      data.categories = data.categories.filter((entry) => entry.id !== target.id);
+      data.hidden = [...new Set([...data.hidden, ...hiddenIds])];
+      return { commit: true, result: { ok: true, hidden: hiddenIds.length } };
+    }
+    if (body.action === "restore-item") {
+      const restored = await mutateRecords(env, (items) => {
+        const item = items.find((entry) => entry.id === body.id);
+        if (!item) return { commit: false, result: { error: "missing", status: 404 } };
+        if (item.status !== STATUS.hidden) return { commit: false, result: { error: "state", status: 409 } };
+        const exists = item.category && data.categories.some((entry) => entry.id === item.category && entry.kind === item.kind);
+        if (!exists) {
+          const fallback = data.categories.find((entry) => entry.kind === item.kind);
+          if (!fallback) return { commit: false, result: { error: "category", status: 400 } };
+          item.category = fallback.id;
+        }
+        item.status = STATUS.approved;
+        delete item.hiddenAt;
+        delete item.hiddenFrom;
+        return { commit: true, result: { ok: true } };
+      });
+      if (restored && restored.error) return { commit: false, result: restored };
+      data.hidden = data.hidden.filter((id) => id !== body.id);
+      return { commit: true, result: { ok: true } };
+    }
+    if (body.action === "move-category") {
+      const index = data.categories.findIndex((entry) => entry.id === body.id);
+      const next = index + (body.direction === "up" ? -1 : 1);
+      if (index < 0 || next < 0 || next >= data.categories.length) return fail("move", 400);
+      if (data.categories[index].kind !== data.categories[next].kind) return fail("move", 400);
+      const [entry] = data.categories.splice(index, 1);
+      data.categories.splice(next, 0, entry);
+      return { commit: true, result: { ok: true } };
+    }
+    if (body.action === "hide-item" || body.action === "hide-face") {
+      const hidden = await mutateRecords(env, (items) => {
+        const item = items.find((entry) => entry.id === body.id);
+        if (!item) return { commit: false, result: { error: "missing", status: 404 } };
+        if (item.status === STATUS.hidden) return { commit: false, result: { ok: true } };
+        item.status = STATUS.hidden;
+        item.hiddenAt = Date.now();
+        return { commit: true, result: { ok: true } };
+      });
+      if (hidden && hidden.error) return { commit: false, result: hidden };
+      data.hidden = [...new Set([...data.hidden, String(body.id)])];
+      return { commit: true, result: { ok: true } };
+    }
+    return fail("action", 400);
+  });
+  if (outcome && outcome.error) return json({ error: outcome.error }, outcome.status || 400);
+  return json(outcome || { ok: true });
 }
 
-/** 过期清理：拒绝的条目 30 天后移除记录；隐藏的内容 30 天后连同文件一起删除。 */
+/**
+ * 过期清理：拒绝的条目 30 天后移除记录；隐藏的内容 30 天后连同文件一起删除。
+ * 年龄按「进入该状态的时间」计算，否则刚隐藏的老条目会被立刻清掉。
+ * 待删除清单只取自提交成功的那一次 mutator 结果，避免重试时累积。
+ */
 async function housekeeping(env) {
   const now = Date.now();
-  const expired = [];
-  const dropped = new Set();
-  await mutateRecords(env, (items) => {
+  const outcome = await mutateRecords(env, (items) => {
     const keep = [];
+    const doomed = [];
+    const ids = [];
     items.forEach((item) => {
-      const created = Date.parse(item.created || 0);
-      const age = Number.isFinite(created) ? now - created : 0;
-      if (age > RECORD_TTL_DAYS * DAY && item.status === STATUS.rejected) { dropped.add(item.id); return; }
-      if (age > HIDDEN_TTL_DAYS * DAY && item.status === STATUS.hidden) {
-        expired.push(item);
-        dropped.add(item.id);
+      const since = Date.parse(item.hiddenAt || item.rejectedAt || item.created || 0);
+      const age = Number.isFinite(since) ? now - since : 0;
+      if (item.status === STATUS.rejected && age > RECORD_TTL_DAYS * DAY) {
+        ids.push(item.id);
+        return;
+      }
+      if (item.status === STATUS.hidden && age > HIDDEN_TTL_DAYS * DAY) {
+        ids.push(item.id);
+        doomed.push(item);
         return;
       }
       keep.push(item);
     });
-    if (keep.length === items.length) return { commit: false };
+    if (keep.length === items.length) return { commit: false, result: { doomed: [], ids: [] } };
     items.length = 0;
     items.push(...keep);
-    return { commit: true };
+    return { commit: true, result: { doomed, ids } };
   });
-  if (!expired.length) return;
-  await Promise.all(expired.map((item) => (item.key ? env.BUCKET.delete(item.key) : null)));
+  const { doomed, ids } = outcome || { doomed: [], ids: [] };
+  if (!doomed.length && !ids.length) return;
+  await Promise.all(doomed.map((item) => (item.key ? env.BUCKET.delete(item.key) : null)));
+  const dropped = new Set(ids);
   await mutateCatalog(env, (data) => {
     const next = data.hidden.filter((id) => !dropped.has(id));
     if (next.length === data.hidden.length) return { commit: false };

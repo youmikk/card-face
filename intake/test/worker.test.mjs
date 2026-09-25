@@ -335,12 +335,25 @@ test("并发提交不会丢记录（乐观锁生效）", async () => {
   assert.equal(list.items.length, 5, "5 个并发提交都应保留");
 });
 
-test("条件写不可用时降级为普通写入，请求仍然成功", async () => {
-  const env = makeEnv({ BUCKET: new FakeBucket({ conditional: false }) });
-  const form = submitForm({ ip: "10.3.5.1", file: fileOf(pngBytes(60, 60), "d.png", "image/png") });
-  assert.equal((await call(env, "/submit", { method: "POST", ip: "10.3.5.1", form: form.form })).status, 200);
-  const list = await (await call(env, "/review/items", { token: PASSWORD, ip: "10.3.5.1" })).json();
-  assert.equal(list.items.length, 1);
+test("条件写不可用时降级为普通写入，且不会污染共享实例的乐观锁", async () => {
+  // 用带查询串的独立模块实例，避免把共享实例的 conditionalWrites 永久置为 false
+  const { default: freshWorker } = await import("../src/index.js?degrade-check");
+  const submitWith = (instance, bucketEnv, ip, name) => instance.fetch(
+    req("/submit", { method: "POST", ip, form: submitForm({ name, ip, file: fileOf(pngBytes(60, 60), `${name}.png`, "image/png") }).form }),
+    bucketEnv,
+  );
+  const degraded = makeEnv({ BUCKET: new FakeBucket({ conditional: false }) });
+  assert.equal((await submitWith(freshWorker, degraded, "10.3.5.1", "degraded")).status, 200);
+  const degradedList = await (await freshWorker.fetch(req("/review/items", { token: PASSWORD, ip: "10.3.5.1" }), degraded)).json();
+  assert.equal(degradedList.items.length, 1);
+  // 共享实例仍应带乐观锁：并发提交不丢记录
+  const locked = makeEnv({ BUCKET: new FakeBucket({ latency: 3 }) });
+  const statuses = await Promise.all(
+    ["a", "b", "c"].map((name, index) => submitWith(worker, locked, `10.3.7.${index + 1}`, name).then((response) => response.status)),
+  );
+  assert.deepEqual(statuses, [200, 200, 200]);
+  const lockedList = await (await worker.fetch(req("/review/items", { token: PASSWORD, ip: "10.3.7.9" }), locked)).json();
+  assert.equal(lockedList.items.length, 3, "共享实例的乐观锁必须仍然生效");
 });
 
 test("删除分类改为软删除：可恢复，且在隐藏期间不可公开访问", async () => {
@@ -401,4 +414,81 @@ test("未通过审核的内容不可公开访问，且审核文件需要鉴权",
   assert.equal((await call(env, `/review/file/${item.id}`)).status, 401);
   assert.equal((await call(env, `/review/file/${item.id}`, { token: PASSWORD, ip: "10.6.0.1" })).status, 200);
   assert.equal((await call(env, `/review/file/${item.id}`, { token: PASSWORD, ip: "10.6.0.1" })).headers.get("Cache-Control"), "private, no-store");
+});
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+test("隐藏时间才决定清理期限：上线很久的条目刚隐藏不会被立刻删除", async () => {
+  const env = makeEnv();
+  const form = submitForm({ ip: "10.7.0.1", file: fileOf(pngBytes(100, 100), "old.png", "image/png") });
+  await call(env, "/submit", { method: "POST", ip: "10.7.0.1", form: form.form });
+  const item = (await (await call(env, "/review/items", { token: PASSWORD, ip: "10.7.0.1" })).json()).items[0];
+  await call(env, "/review/items", { method: "POST", token: PASSWORD, ip: "10.7.0.1", payload: { action: "approve", id: item.id, category: "solid" } });
+  const stored = env.BUCKET.objects.get("records.json");
+  const data = JSON.parse(new TextDecoder().decode(stored.bytes));
+  data.find((entry) => entry.id === item.id).created = new Date(Date.now() - 60 * DAY_MS).toISOString();
+  await env.BUCKET.put("records.json", JSON.stringify(data), { httpMetadata: { contentType: "application/json" } });
+  assert.equal((await call(env, "/review/catalog", { method: "POST", token: PASSWORD, ip: "10.7.0.1", payload: { action: "hide-item", id: item.id } })).status, 200);
+  // 打开审核页会触发 housekeeping：这里必须仍然保留文件和记录
+  const catalog = await (await call(env, "/review/catalog", { token: PASSWORD, ip: "10.7.0.1" })).json();
+  assert.equal(catalog.hidden.length, 1, "刚隐藏的条目不应被清理");
+  assert.equal((await env.BUCKET.head(`approved/${item.id}.png`)) !== null, true, "文件必须保留");
+  assert.equal((await call(env, "/review/catalog", { method: "POST", token: PASSWORD, ip: "10.7.0.1", payload: { action: "restore-item", id: item.id } })).status, 200);
+  assert.equal((await call(env, `/files/${item.id}`)).status, 200);
+});
+
+test("已通过的条目不能被拒绝，线上文件保留", async () => {
+  const env = makeEnv();
+  const form = submitForm({ ip: "10.7.1.1", file: fileOf(pngBytes(120, 90), "keep.png", "image/png") });
+  await call(env, "/submit", { method: "POST", ip: "10.7.1.1", form: form.form });
+  const item = (await (await call(env, "/review/items", { token: PASSWORD, ip: "10.7.1.1" })).json()).items[0];
+  await call(env, "/review/items", { method: "POST", token: PASSWORD, ip: "10.7.1.1", payload: { action: "approve", id: item.id, category: "solid" } });
+  const rejected = await call(env, "/review/items", { method: "POST", token: PASSWORD, ip: "10.7.1.1", payload: { action: "reject", id: item.id } });
+  assert.equal(rejected.status, 409);
+  assert.equal((await env.BUCKET.head(`approved/${item.id}.png`)) !== null, true);
+  assert.equal((await call(env, `/files/${item.id}`)).status, 200);
+});
+
+test("被拒绝的条目不能再通过（文件已删除）", async () => {
+  const env = makeEnv();
+  const form = submitForm({ ip: "10.7.2.1", file: fileOf(pngBytes(80, 80), "gone.png", "image/png") });
+  await call(env, "/submit", { method: "POST", ip: "10.7.2.1", form: form.form });
+  const item = (await (await call(env, "/review/items", { token: PASSWORD, ip: "10.7.2.1" })).json()).items[0];
+  await call(env, "/review/items", { method: "POST", token: PASSWORD, ip: "10.7.2.1", payload: { action: "reject", id: item.id } });
+  const again = await call(env, "/review/items", { method: "POST", token: PASSWORD, ip: "10.7.2.1", payload: { action: "approve", id: item.id, category: "solid" } });
+  assert.equal(again.status, 409);
+});
+
+test("并发分类改动不会互相覆盖（catalog 乐观锁）", async () => {
+  const env = makeEnv({ BUCKET: new FakeBucket({ latency: 3 }) });
+  const names = ["甲", "乙", "丙"];
+  const responses = await Promise.all(names.map((name, index) => call(env, "/review/catalog", {
+    method: "POST",
+    token: PASSWORD,
+    ip: `10.8.0.${index + 1}`,
+    payload: { action: "add-category", name, kind: "face", role: "plain" },
+  })));
+  assert.deepEqual(responses.map((response) => response.status), [200, 200, 200]);
+  const catalog = await (await call(env, "/review/catalog", { token: PASSWORD, ip: "10.8.0.9" })).json();
+  names.forEach((name) => assert.equal(catalog.categories.some((entry) => entry.name === name), true, `分类 ${name} 应保留`));
+});
+
+test("DELETE /review/password 需要当前口令，清除后回到 env 控制", async () => {
+  const env = makeEnv();
+  assert.equal((await call(env, "/review/password", { method: "DELETE", ip: "10.9.0.1" })).status, 401);
+  await call(env, "/review/password", { method: "POST", token: PASSWORD, ip: "10.9.0.1", payload: { password: "rotated-password-1" } });
+  assert.equal((await call(env, "/review/items", { token: "rotated-password-1", ip: "10.9.0.1" })).status, 200);
+  const cleared = await call(env, "/review/password", { method: "DELETE", token: "rotated-password-1", ip: "10.9.0.1" });
+  assert.equal(cleared.status, 200);
+  assert.equal((await cleared.json()).source, "env");
+  assert.equal((await call(env, "/review/items", { token: "rotated-password-1", ip: "10.9.0.1" })).status, 401);
+  assert.equal((await call(env, "/review/items", { token: PASSWORD, ip: "10.9.0.1" })).status, 200);
+});
+
+test("JPEG 段长度非法时按不可信拒绝，避免绕过像素上限", async () => {
+  const env = makeEnv();
+  const bad = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x01, 0xff, 0xc0, 0x00, 0x11, 0x08, 0xff, 0xff, 0xff, 0xff, 0x03, 0x01, 0x11, 0x00, 0x02, 0x11, 0x00, 0x03, 0x11, 0x00, 0xff, 0xd9]);
+  const response = await call(env, "/submit", { method: "POST", ip: "10.10.0.1", form: submitForm({ ip: "10.10.0.1", file: fileOf(bad, "bomb.jpg", "image/jpeg") }).form });
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error, "size");
 });
