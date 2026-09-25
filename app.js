@@ -26,6 +26,21 @@ function submitErrorText(code) {
   const map = uiText[language].submitError || {};
   return map[code] || copy().submitFailed;
 }
+
+/** 分类角色：优先用清单里的 role；旧版清单没有 role 时按老的分类名/固定 id 兜底。 */
+function categoryRole(entry) {
+  if (entry && entry.role) return entry.role;
+  const name = entry && entry.name ? String(entry.name) : "";
+  if (name === "银行" || name === "Banks") return "bank";
+  if (name === "其他" || name === "Other") return "other";
+  const id = entry && entry.id ? String(entry.id) : "";
+  if (id === "banks") return "bank";
+  if (id === "other") return "other";
+  return "plain";
+}
+function categoryEntry(id) {
+  return [...faceCategories, ...logoCategories].find((item) => item && item.id === id) || null;
+}
 const dictionaries = {
   zh: {
     styles: { flat: "直角", "flat-rounded": "圆角", logo: "标志", "logo-border": "描边", mono: "单色", "mono-outline": "线框" },
@@ -173,7 +188,7 @@ function buildGroups() {
        return;
      }
      const mark = { id: `sub-${item.id}`, name: item.name, src: item.url, width: item.width || 132 };
-     if (item.category === "banks" && item.bank) {
+    if (item.kind === "logo" && item.bank && categoryRole(categoryEntry(item.category)) === "bank") {
        extraBankMarks[item.bank] = extraBankMarks[item.bank] || [];
        extraBankMarks[item.bank].push(mark);
        return;
@@ -493,9 +508,9 @@ async function openSave(id) {
     try { return await faceImage(faceId); } catch { return null; }
   };
   let nextSource = "thumb";
+  let nextUpload = "";
   let image = null;
   if (savedSource.startsWith("face:")) {
-    uploadData = "";
     nextSource = savedSource; // 卡面暂时不可用时也保留来源，恢复后还能继续用
     image = await loadFaceOrNull(savedSource.slice(5));
     if (!image) {
@@ -503,18 +518,20 @@ async function openSave(id) {
       if (image) showToast(copy().openFailed);
     }
   } else if (entry.image || entry.thumb) {
-    uploadData = entry.image || "";
-    nextSource = uploadData ? "upload" : "thumb";
+    nextUpload = entry.image || "";
+    nextSource = nextUpload ? "upload" : "thumb";
     image = await loadOrNull(entry.image);
     if (!image) {
       image = await loadOrNull(entry.thumb);
       if (image) {
         nextSource = "thumb";
-        uploadData = "";
+        nextUpload = "";
       }
     }
   }
   if (!image) { showToast(copy().openBroken); return; }
+  // 全部加载成功后才提交全局状态：失败时不会把上一张卡的数据留在内存里
+  uploadData = nextUpload;
   cardImage = image;
   activeSave = id;
   applySnapshot(state);
@@ -1373,7 +1390,7 @@ function submitCategories(kind) {
    }
   const list = kind.value === "face" ? faceCategories : logoCategories;
   const entry = list.find((item) => item.id === category.value) || null;
-  const role = entry && entry.role ? entry.role : "plain";
+  const role = categoryRole(entry);
   document.querySelector("#submit-bank-row").hidden = !(kind.value === "logo" && role === "bank");
   const custom = document.querySelector("#submit-custom");
   document.querySelector("#submit-custom-row").hidden = role !== "other";
