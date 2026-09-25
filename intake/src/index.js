@@ -119,8 +119,9 @@ async function objectResponse(env, item, cache) {
  }
  async function storedPassword(env) {
    const saved = await env.BUCKET.get("review-password.txt");
-   if (saved) return new TextDecoder().decode(saved.body).trim();
-   return String(env.REVIEW_PASSWORD || "").trim();
+   if (!saved) return String(env.REVIEW_PASSWORD || "").trim();
+   if (typeof saved.text === "function") return (await saved.text()).trim();
+   return new TextDecoder().decode(await new Response(saved.body).arrayBuffer()).trim();
  }
  async function authorized(request, env) {
    const header = request.headers.get("Authorization") || "";
@@ -289,7 +290,11 @@ const PAGE = `<!doctype html>
      }
      sessionStorage.setItem("review-token", token);
      response = await fetch("/review/items", { headers: auth() });
-     if (!response.ok) document.querySelector("#list").textContent = "密码不对";
+     if (response.status !== 401) {
+       document.querySelector("#list").textContent = "审核服务出错，请稍后再试";
+       return;
+     }
+     document.querySelector("#list").textContent = "密码不对";
    }
   const data = await response.json();
   const list = document.querySelector("#list");
