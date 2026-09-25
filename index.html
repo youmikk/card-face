@@ -6,7 +6,7 @@
   <meta http-equiv="Cache-Control" content="no-cache" />
   <title>卡面设计生成器</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-   <link rel="stylesheet" href="styles.css?v=20260925a" />
+  <link rel="stylesheet" href="styles.css?v=20260925b" />
 </head>
 <body>
   <header class="bar">
@@ -63,13 +63,14 @@
       </div>
       <div class="pickers">
        <section class="face-strip">
-         <div class="head"><h2 data-i18n="cardImage">卡面图片</h2><div class="head-actions"><button type="button" class="pick" id="pick-card" data-i18n="choose">选择图片</button><a class="request" id="request-face" data-i18n="requestFace" href="https://github.com/youmikk/card-face/issues/new" target="_blank" rel="noreferrer">提交图片</a></div></div>
+         <div class="head"><h2 data-i18n="cardImage">卡面图片</h2><div class="head-actions"><button type="button" class="pick" id="pick-card" data-i18n="choose">选择图片</button><button type="button" class="request" id="request-face" data-i18n="requestFace">提交图片</button></div></div>
+         <div class="tabs" id="face-cats"></div>
          <div class="library faces" id="faces"></div>
          <input id="photo" type="file" accept="image/*,.svg" hidden />
          <p class="note" data-i18n="cardNote">图片会等比缩放并居中填满卡面，超出部分自动裁掉。</p>
        </section>
       <section class="logo-panel">
-         <div class="head"><h2>Logo <span id="logo-count">0</span></h2><a class="request" id="request-logo" data-i18n="requestLogo" href="https://github.com/youmikk/card-face/issues/new" target="_blank" rel="noreferrer">提交 logo</a></div>
+         <div class="head"><h2>Logo <span id="logo-count">0</span></h2><button type="button" class="request" id="request-logo" data-i18n="requestLogo">提交 logo</button></div>
         <label class="drop compact" id="logo-drop">
           <strong data-i18n="uploadLogo">上传自己的 logo</strong>
           <small id="logo-hint" data-i18n="logoNeed">请先上传卡面图片</small>
@@ -136,6 +137,21 @@
       <button type="button" id="terms-accept" data-i18n="termsAccept">我已阅读并同意</button>
     </div>
   </div>
+  <div class="sheet" id="submit-sheet" hidden>
+    <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="submit-title">
+      <div class="head"><h2 id="submit-title" data-i18n="submitTitle">提交</h2><button type="button" class="quiet" id="submit-close" data-i18n="close">关闭</button></div>
+      <form id="submit-form" class="submit-form">
+        <label><span data-i18n="submitName">名称</span><input id="submit-name" type="text" maxlength="40" required /></label>
+        <label><span data-i18n="submitKind">类型</span><select id="submit-kind"></select></label>
+        <label><span data-i18n="submitCategory">分类</span><select id="submit-category"></select></label>
+        <label id="submit-bank-row"><span data-i18n="banks">银行</span><select id="submit-bank"></select></label>
+        <label><span data-i18n="submitFile">图片</span><input id="submit-file" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml,.svg" required /></label>
+        <p class="note" id="submit-note"></p>
+        <p class="note" id="submit-status" hidden></p>
+        <button type="submit" class="export" id="submit-send" data-i18n="submitSend">发送</button>
+      </form>
+    </div>
+  </div>
   <div class="sheet" id="support-sheet" hidden>
     <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="support-title">
       <div class="head"><h2 id="support-title" data-i18n="support">赞赏</h2><button type="button" class="quiet" id="support-close" data-i18n="close">关闭</button></div>
@@ -148,6 +164,6 @@
       </figure>
     </div>
   </div>
- <script src="app.js?v=20260925a"></script>
+  <script src="app.js?v=20260925b"></script>
  </body>
 </html>

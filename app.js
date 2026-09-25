@@ -23,6 +23,10 @@ const dictionaries = {
      saveKept: "已保存。原图较大，下次打开只用缩略图。",
      saveFailed: "保存失败，请删掉一些已保存的卡面后再试。",
      exportFailed: "导出失败，请换一张卡面后再试。",
+     submitSent: "已提交，审核通过后会出现在对应分类里。",
+     submitFailed: "提交失败，请稍后再试。",
+     submitBig: "图片不能超过 4 MB。",
+     submitType: "请使用 PNG、JPG、WebP 或 SVG。",
      nothingSaved: "保存区还是空的",
      exportDone: "已开始下载",
      replaceTitle: "换卡面会清掉上面的 logo",
@@ -42,6 +46,10 @@ const dictionaries = {
      saveKept: "Saved. The photo was large, so reopening uses the thumbnail.",
      saveFailed: "Could not save. Delete some saved cards and try again.",
      exportFailed: "Export failed. Try another card image.",
+     submitSent: "Submitted. It appears in that category after review.",
+     submitFailed: "Could not submit. Try again later.",
+     submitBig: "The image must be 4 MB or smaller.",
+     submitType: "Use a PNG, JPG, WebP, or SVG.",
      nothingSaved: "Nothing saved yet",
      exportDone: "Download started",
      replaceTitle: "Changing the card removes its logos",
@@ -50,8 +58,8 @@ const dictionaries = {
   },
 };
 const uiText = {
-  zh: { title: "卡面设计生成器", theme: "深色", themeLight: "浅色", github: "GitHub 项目", support: "赞赏", afdian: "爱发电", wechatSupport: "微信赞赏码", close: "关闭", termsTitle: "使用条款", termsAccept: "我已阅读并同意", preview: "卡面预览", save: "保存", export: "导出 PNG", exportAll: "全部导出", savedCards: "保存区", emptyTitle: "上传一张图片作为卡面", emptyText: "图片会按 1.586 : 1 铺满并居中，之后可以缩放和拖动调整构图。", choose: "选择图片", requestFace: "提交图片", rounded: "按 3.18 mm 圆角呈现（导出同步）", dragCard: "拖动卡面", dragRef: "拖动参考图", resetZoom: "复原", clear: "清空", uploadLogo: "上传自己的 logo", requestLogo: "提交 logo", banks: "银行", cardImage: "卡面图片", dropCard: "拖拽图片到此处，或点击选择", refit: "重新匹配", zoom: "缩放", cardNote: "图片会等比缩放并居中填满卡面，超出部分自动裁掉。", saveNote: "点保存记下当前卡面。点缩略图可以再打开修改。只存在这台浏览器里。", reference: "参考图", dropRef: "拖拽参考图到此处，或点击选择", refHint: "只用于对位，不会出现在导出的 PNG 里", showRef: "显示参考图", opacity: "透明度", adjust: "调整", selectLogo: "点击卡面上的 logo 进行编辑", size: "大小", rotate: "旋转", lock: "锁定", up: "上移", down: "下移", delete: "删除", layers: "图层", noLogo: "暂无 logo", legal: "输出只是视觉设计文件，不代表任何机构发行的卡片。图标来自公开素材库，使用前请确认你有相应授权。" },
-  en: { title: "Card Design Generator", theme: "Dark", themeLight: "Light", github: "GitHub project", support: "Support", afdian: "Afdian", wechatSupport: "WeChat", close: "Close", termsTitle: "Terms of use", termsAccept: "I have read and agree", preview: "Card preview", save: "Save", export: "Export PNG", exportAll: "Export all", savedCards: "Saved", emptyTitle: "Upload an image for the card", emptyText: "The image fills the 1.586:1 card and can then be zoomed and dragged.", choose: "Choose image", requestFace: "Submit an image", rounded: "Show 3.18 mm rounded corners (also exported)", dragCard: "Move card", dragRef: "Move reference", resetZoom: "Reset zoom", clear: "Clear", uploadLogo: "Upload your own logos", requestLogo: "Submit a logo", banks: "Banks", cardImage: "Card image", dropCard: "Drop an image here, or click to choose", refit: "Refit", zoom: "Zoom", cardNote: "The image is scaled and centered to fill the card. Overflow is cropped.", saveNote: "Save stores the current card. Open a thumbnail to edit it again. It stays in this browser only.", reference: "Reference", dropRef: "Drop a reference here, or click to choose", refHint: "Used for alignment only. It is not included in the PNG.", showRef: "Show reference", opacity: "Opacity", adjust: "Adjust", selectLogo: "Click a logo on the card to edit it", size: "Size", rotate: "Rotate", lock: "Lock", up: "Up", down: "Down", delete: "Delete", layers: "Layers", noLogo: "No logos yet", legal: "The output is a visual design file only. Logos come from public asset libraries; confirm permission before publishing." },
+  zh: { title: "卡面设计生成器", theme: "深色", themeLight: "浅色", github: "GitHub 项目", support: "赞赏", afdian: "爱发电", wechatSupport: "微信赞赏码", close: "关闭", termsTitle: "使用条款", termsAccept: "我已阅读并同意", preview: "卡面预览", save: "保存", export: "导出 PNG", exportAll: "全部导出", savedCards: "保存区", emptyTitle: "上传一张图片作为卡面", emptyText: "图片会按 1.586 : 1 铺满并居中，之后可以缩放和拖动调整构图。", choose: "选择图片", requestFace: "提交图片", rounded: "按 3.18 mm 圆角呈现（导出同步）", dragCard: "拖动卡面", dragRef: "拖动参考图", resetZoom: "复原", clear: "清空", uploadLogo: "上传自己的 logo", requestLogo: "提交 logo", banks: "银行", cardImage: "卡面图片", dropCard: "拖拽图片到此处，或点击选择", refit: "重新匹配", zoom: "缩放", cardNote: "图片会等比缩放并居中填满卡面，超出部分自动裁掉。", saveNote: "点保存记下当前卡面。点缩略图可以再打开修改。只存在这台浏览器里。", reference: "参考图", dropRef: "拖拽参考图到此处，或点击选择", refHint: "只用于对位，不会出现在导出的 PNG 里", showRef: "显示参考图", opacity: "透明度", adjust: "调整", selectLogo: "点击卡面上的 logo 进行编辑", size: "大小", rotate: "旋转", lock: "锁定", up: "上移", down: "下移", delete: "删除", layers: "图层", noLogo: "暂无 logo", legal: "输出只是视觉设计文件，不代表任何机构发行的卡片。图标来自公开素材库，使用前请确认你有相应授权。", submitTitle: "提交", submitName: "名称", submitKind: "类型", submitCategory: "分类", submitFile: "图片", submitSend: "发送", kindFace: "卡面", kindLogo: "Logo", catSolid: "纯色", catBank: "银行", catTransit: "交通", catOther: "其他", submitFaceNote: "不要提交带卡号、姓名或真实银行卡照片的图片。审核通过后才会公开。", submitLogoNote: "只提交你有权公开使用的标识。审核通过后才会公开。" },
+  en: { title: "Card Design Generator", theme: "Dark", themeLight: "Light", github: "GitHub project", support: "Support", afdian: "Afdian", wechatSupport: "WeChat", close: "Close", termsTitle: "Terms of use", termsAccept: "I have read and agree", preview: "Card preview", save: "Save", export: "Export PNG", exportAll: "Export all", savedCards: "Saved", emptyTitle: "Upload an image for the card", emptyText: "The image fills the 1.586:1 card and can then be zoomed and dragged.", choose: "Choose image", requestFace: "Submit an image", rounded: "Show 3.18 mm rounded corners (also exported)", dragCard: "Move card", dragRef: "Move reference", resetZoom: "Reset zoom", clear: "Clear", uploadLogo: "Upload your own logos", requestLogo: "Submit a logo", banks: "Banks", cardImage: "Card image", dropCard: "Drop an image here, or click to choose", refit: "Refit", zoom: "Zoom", cardNote: "The image is scaled and centered to fill the card. Overflow is cropped.", saveNote: "Save stores the current card. Open a thumbnail to edit it again. It stays in this browser only.", reference: "Reference", dropRef: "Drop a reference here, or click to choose", refHint: "Used for alignment only. It is not included in the PNG.", showRef: "Show reference", opacity: "Opacity", adjust: "Adjust", selectLogo: "Click a logo on the card to edit it", size: "Size", rotate: "Rotate", lock: "Lock", up: "Up", down: "Down", delete: "Delete", layers: "Layers", noLogo: "No logos yet", legal: "The output is a visual design file only. Logos come from public asset libraries; confirm permission before publishing.", submitTitle: "Submit", submitName: "Name", submitKind: "Type", submitCategory: "Category", submitFile: "Image", submitSend: "Send", kindFace: "Card", kindLogo: "Logo", catSolid: "Solid", catBank: "Bank", catTransit: "Transit", catOther: "Other", submitFaceNote: "Do not submit card numbers, names, or photos of real bank cards. It stays private until it is approved.", submitLogoNote: "Submit only marks you have the right to publish. It stays private until it is approved." },
 };
 let language = localStorage.getItem("card-lang") || "zh";
 const copy = () => dictionaries[language];
@@ -118,15 +126,38 @@ function buildGroups() {
   ];
 
 }
-const faces = [
-  { id: "ink", zh: "墨蓝", en: "Ink", stops: ["#243044", "#1a2433", "#31445d"] },
-  { id: "navy", zh: "海蓝", en: "Navy", stops: ["#163a6b", "#0e2749", "#2d5d9a"] },
-  { id: "teal", zh: "青绿", en: "Teal", stops: ["#0e6e66", "#0a4a45", "#1a9a8e"] },
-  { id: "forest", zh: "松绿", en: "Forest", stops: ["#1d5a3a", "#123d27", "#2f8a58"] },
-  { id: "wine", zh: "酒红", en: "Wine", stops: ["#6d2438", "#471626", "#9a3d56"] },
-  { id: "slate", zh: "石板", en: "Slate", stops: ["#3d4654", "#2a313b", "#5d6a7c"] },
-  { id: "sand", zh: "沙金", en: "Sand", stops: ["#c4a574", "#a88858", "#e2cba4"] },
-  { id: "paper", zh: "素白", en: "Paper", stops: ["#f4f1ea", "#e4dfd4", "#ffffff"] },
+ let approved = [];
+ const extraBankMarks = {};
+ function applyApproved() {
+   faces = faces.filter((face) => !String(face.id).startsWith("sub-"));
+   Object.keys(extraBankMarks).forEach((key) => { delete extraBankMarks[key]; });
+   groups.forEach((group) => {
+     group.marks = group.marks.filter((mark) => !String(mark.id).startsWith("sub-"));
+   });
+   approved.forEach((item) => {
+     if (item.kind === "face") {
+       faces.push({ id: `sub-${item.id}`, zh: item.name, en: item.name, category: item.category, src: item.url });
+       return;
+     }
+     const mark = { id: `sub-${item.id}`, name: item.name, src: item.url, width: item.width || 132 };
+     if (item.category === "banks" && item.bank) {
+       extraBankMarks[item.bank] = extraBankMarks[item.bank] || [];
+       extraBankMarks[item.bank].push(mark);
+       return;
+     }
+     const group = groups.find((entry) => entry.id === item.category);
+     if (group) group.marks.push(mark);
+   });
+ }
+ let faces = [
+  { id: "ink", zh: "墨蓝", en: "Ink", category: "solid", stops: ["#243044", "#1a2433", "#31445d"] },
+  { id: "navy", zh: "海蓝", en: "Navy", category: "solid", stops: ["#163a6b", "#0e2749", "#2d5d9a"] },
+  { id: "teal", zh: "青绿", en: "Teal", category: "solid", stops: ["#0e6e66", "#0a4a45", "#1a9a8e"] },
+  { id: "forest", zh: "松绿", en: "Forest", category: "solid", stops: ["#1d5a3a", "#123d27", "#2f8a58"] },
+  { id: "wine", zh: "酒红", en: "Wine", category: "solid", stops: ["#6d2438", "#471626", "#9a3d56"] },
+  { id: "slate", zh: "石板", en: "Slate", category: "solid", stops: ["#3d4654", "#2a313b", "#5d6a7c"] },
+  { id: "sand", zh: "沙金", en: "Sand", category: "solid", stops: ["#c4a574", "#a88858", "#e2cba4"] },
+  { id: "paper", zh: "素白", en: "Paper", category: "solid", stops: ["#f4f1ea", "#e4dfd4", "#ffffff"] },
 ];
 const faceCanvas = document.createElement("canvas");
 faceCanvas.width = CARD_W;
@@ -137,8 +168,17 @@ const faceJobs = {};
 function faceImage(id) {
   if (faceCache[id]) return Promise.resolve(faceCache[id]);
   if (faceJobs[id]) return faceJobs[id];
-  faceJobs[id] = new Promise((resolve) => {
+  faceJobs[id] = new Promise((resolve, reject) => {
     const face = faces.find((entry) => entry.id === id);
+    if (!face) { reject(new Error("missing face")); return; }
+    if (face.src) {
+      const image = new Image();
+      image.crossOrigin = "anonymous";
+      image.onload = () => { faceCache[id] = image; resolve(image); };
+      image.onerror = () => reject(new Error("face"));
+      image.src = face.src;
+      return;
+    }
     const gradient = faceCtx.createLinearGradient(0, 0, CARD_W, CARD_H);
     gradient.addColorStop(0, face.stops[0]);
     gradient.addColorStop(0.55, face.stops[1]);
@@ -159,17 +199,24 @@ function faceImage(id) {
   });
   return faceJobs[id];
 }
-function paintSwatch(canvas, face) {
-  const context = canvas.getContext("2d");
-  const width = canvas.width;
-  const height = canvas.height;
-  const gradient = context.createLinearGradient(0, 0, width, height);
-  gradient.addColorStop(0, face.stops[0]);
-  gradient.addColorStop(0.55, face.stops[1]);
-  gradient.addColorStop(1, face.stops[2]);
-  context.fillStyle = gradient;
-  context.fillRect(0, 0, width, height);
-}
+ function paintSwatch(canvas, face) {
+   const context = canvas.getContext("2d");
+   const width = canvas.width;
+   const height = canvas.height;
+   if (face.src) {
+     const image = new Image();
+     image.crossOrigin = "anonymous";
+     image.onload = () => context.drawImage(image, 0, 0, width, height);
+     image.src = face.src;
+     return;
+   }
+   const gradient = context.createLinearGradient(0, 0, width, height);
+   gradient.addColorStop(0, face.stops[0]);
+   gradient.addColorStop(0.55, face.stops[1]);
+   gradient.addColorStop(1, face.stops[2]);
+   context.fillStyle = gradient;
+   context.fillRect(0, 0, width, height);
+ }
 
  const SAVES_KEY = "card-saves";
  let saves = [];
@@ -179,10 +226,24 @@ function paintSwatch(canvas, face) {
  let cardSource = null;
  let saveSeq = saves.reduce((max, entry) => Math.max(max, entry.seq || 0), 0);
  function faceName(face) { return language === "zh" ? face.zh : face.en; }
+ const FACE_CATS = ["solid", "bank", "transit", "other"];
+ let faceCategory = "solid";
  function renderFaces() {
+   const tabs = document.querySelector("#face-cats");
+   tabs.replaceChildren();
+   const text = uiText[language];
+   const labels = { solid: text.catSolid, bank: text.catBank, transit: text.catTransit, other: text.catOther };
+   FACE_CATS.forEach((id) => {
+     const tab = document.createElement("button");
+     tab.type = "button";
+     tab.className = "tab" + (id === faceCategory ? " active" : "");
+     tab.textContent = labels[id];
+     tab.addEventListener("click", () => { faceCategory = id; renderFaces(); });
+     tabs.appendChild(tab);
+   });
    const box = document.querySelector("#faces");
    box.replaceChildren();
-   faces.forEach((face) => {
+   faces.filter((face) => (face.category || "solid") === faceCategory).forEach((face) => {
      const button = document.createElement("button");
      button.type = "button";
      button.className = "face" + (cardSource === `face:${face.id}` && !activeSave ? " active" : "");
@@ -309,7 +370,8 @@ function paintSwatch(canvas, face) {
      photo.src = entry.thumb;
    }
    marks.forEach((item) => {
-     const image = new Image();
+    const image = new Image();
+    image.crossOrigin = "anonymous";
      image.onload = () => { loaded[item.id] = image; done(); };
      image.onerror = done;
      image.src = item.src;
@@ -465,10 +527,11 @@ function renderTabs() {
 
 function bankMarks(bank) {
   const text = copy();
-  return [
-    { id: `bank-${bank.id}-mark`, name: text.groups.bankMark, src: bank.icon, width: 92 },
-    ...(bank.wordmark ? [{ id: `bank-${bank.id}-lockup`, name: text.groups.bankLockup, src: bank.wordmark, width: 180 }] : []),
-  ];
+   return [
+     { id: `bank-${bank.id}-mark`, name: text.groups.bankMark, src: bank.icon, width: 92 },
+     ...(bank.wordmark ? [{ id: `bank-${bank.id}-lockup`, name: text.groups.bankLockup, src: bank.wordmark, width: 180 }] : []),
+     ...(extraBankMarks[bank.id] || []),
+   ];
 }
 
 function renderLibrary() {
@@ -1056,6 +1119,7 @@ function loadImage(src) {
   if (imageCache[src]) return Promise.resolve(imageCache[src]);
   return new Promise((resolve, reject) => {
     const image = new Image();
+    image.crossOrigin = "anonymous";
     image.onload = () => { imageCache[src] = image; resolve(image); };
     image.onerror = reject;
     image.src = src;
@@ -1101,21 +1165,17 @@ function applyLanguage() {
   document.querySelectorAll("[data-i18n-label]").forEach((node) => {
     node.setAttribute("aria-label", uiText[language][node.dataset.i18nLabel]);
   });
-  const requestTitle = language === "zh" ? "提交 logo" : "Submit a logo";
-  const requestBody = language === "zh" ? "银行卡：\n\n请附上 SVG 或 PNG。\n" : "Card:\n\nPlease attach an SVG or PNG.\n";
-  document.querySelector("#request-logo").href = `https://github.com/youmikk/card-face/issues/new?title=${encodeURIComponent(requestTitle)}&body=${encodeURIComponent(requestBody)}`;
-  const faceTitle = language === "zh" ? "提交图片" : "Submit an image";
-  const faceBody = language === "zh" ? "卡面名称：\n\n请附上图片。\n" : "Card name:\n\nPlease attach the image.\n";
-  document.querySelector("#request-face").href = `https://github.com/youmikk/card-face/issues/new?title=${encodeURIComponent(faceTitle)}&body=${encodeURIComponent(faceBody)}`;
-  renderTerms();
-  groups = buildGroups();
-  marks = Object.fromEntries(groups.flatMap((group) => group.marks.map((mark) => [mark.id, mark])));
+   renderTerms();
+   groups = buildGroups();
+   applyApproved();
+   marks = Object.fromEntries(groups.flatMap((group) => group.marks.map((mark) => [mark.id, mark])));
   renderTabs();
   renderLibrary();
   renderFaces();
    renderSaves();
   renderLogos();
   syncLogoAvailability();
+  fillSubmitForm();
 }
 
 document.querySelector("#lang-toggle").addEventListener("click", () => {
@@ -1147,3 +1207,105 @@ document.querySelector("#terms-sheet").hidden = localStorage.getItem("card-terms
 applyLanguage();
 paint();
 renderLogos();
+ const INTAKE = "https://card-face-intake.youmikk.workers.dev";
+ async function loadApproved() {
+   try {
+     const response = await fetch(`${INTAKE}/manifest`);
+     if (!response.ok) return;
+     const data = await response.json();
+     approved = Array.isArray(data.items) ? data.items : [];
+     applyLanguage();
+   } catch {}
+ }
+ function submitCategories(kind) {
+   const text = uiText[language];
+   if (kind === "face") return [["solid", text.catSolid], ["bank", text.catBank], ["transit", text.catTransit], ["other", text.catOther]];
+   const brands = copy();
+   return [["banks", brands.groups.banks], ["transit", brands.groups.transit], ["official", brands.groups.official], ["payment", brands.groups.payment]];
+ }
+ function fillSubmitForm() {
+   const text = uiText[language];
+   const kind = document.querySelector("#submit-kind");
+   const previous = kind.value || "face";
+   kind.replaceChildren();
+   [["face", text.kindFace], ["logo", text.kindLogo]].forEach(([value, label]) => {
+     const option = document.createElement("option");
+     option.value = value;
+     option.textContent = label;
+     kind.appendChild(option);
+   });
+   kind.value = previous;
+   const category = document.querySelector("#submit-category");
+   const kept = category.value;
+   category.replaceChildren();
+   submitCategories(kind.value).forEach(([value, label]) => {
+     const option = document.createElement("option");
+     option.value = value;
+     option.textContent = label;
+     category.appendChild(option);
+   });
+   if ([...category.options].some((option) => option.value === kept)) category.value = kept;
+   const bank = document.querySelector("#submit-bank");
+   if (!bank.childElementCount) {
+     bankIndex.forEach((entry) => {
+       const option = document.createElement("option");
+       option.value = entry.id;
+       option.textContent = entry.name;
+       bank.appendChild(option);
+     });
+   }
+   document.querySelector("#submit-bank-row").hidden = !(kind.value === "logo" && category.value === "banks");
+   document.querySelector("#submit-note").textContent = kind.value === "face" ? text.submitFaceNote : text.submitLogoNote;
+ }
+ function openSubmit(kind) {
+   document.querySelector("#submit-kind").value = kind;
+   fillSubmitForm();
+   document.querySelector("#submit-status").hidden = true;
+   document.querySelector("#submit-sheet").hidden = false;
+ }
+ document.querySelector("#request-face").addEventListener("click", () => openSubmit("face"));
+ document.querySelector("#request-logo").addEventListener("click", () => openSubmit("logo"));
+ document.querySelector("#submit-kind").addEventListener("change", fillSubmitForm);
+ document.querySelector("#submit-category").addEventListener("change", fillSubmitForm);
+ document.querySelector("#submit-close").addEventListener("click", () => {
+   document.querySelector("#submit-sheet").hidden = true;
+ });
+ document.querySelector("#submit-sheet").addEventListener("click", (event) => {
+   if (event.target.id === "submit-sheet") document.querySelector("#submit-sheet").hidden = true;
+ });
+ document.querySelector("#submit-form").addEventListener("submit", async (event) => {
+   event.preventDefault();
+   const file = document.querySelector("#submit-file").files[0];
+   const text = copy();
+   const status = document.querySelector("#submit-status");
+   const allowed = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];
+   status.hidden = false;
+   if (!file || (!allowed.includes(file.type) && !/\.(png|jpe?g|webp|svg)$/i.test(file.name))) {
+     status.textContent = text.submitType;
+     return;
+   }
+   if (file.size > 4 * 1024 * 1024) {
+     status.textContent = text.submitBig;
+     return;
+   }
+   const body = new FormData();
+   body.set("name", document.querySelector("#submit-name").value.trim());
+   body.set("kind", document.querySelector("#submit-kind").value);
+   body.set("category", document.querySelector("#submit-category").value);
+   body.set("bank", document.querySelector("#submit-bank").value);
+   body.set("file", file);
+   const send = document.querySelector("#submit-send");
+   send.disabled = true;
+   try {
+     const response = await fetch(`${INTAKE}/submit`, { method: "POST", body });
+     if (!response.ok) throw new Error("submit");
+     status.textContent = text.submitSent;
+     document.querySelector("#submit-form").reset();
+     fillSubmitForm();
+   } catch {
+     status.textContent = text.submitFailed;
+   } finally {
+     send.disabled = false;
+   }
+ });
+ loadApproved();

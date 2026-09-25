@@ -4,14 +4,14 @@ A browser card designer. Upload a card, place payment logos, and export a PNG.
 
 Try it: [https://card.youmikk.me/](https://card.youmikk.me/)
 
-Static files only. No backend.
+The page itself is static. A card you upload and save stays in this browser. Submit an image and Submit a logo send material for review; approved items appear in the matching category without redeploying the site.
 
 [中文说明](README.md)
 
 ## Usage
 
 - Choose a built-in solid card to load it into the preview, or upload your own image. It fills the card and can be zoomed and dragged. Pinch to zoom on a phone, or use the mouse wheel on a computer.
- - Save stores the finished card in the save area, including the placed logos. Open a thumbnail to edit it again; saving again updates that card. Export all downloads each saved card as a PNG. Saves stay in this browser and disappear when site data is cleared. Uploaded images are not sent to a server.
+ - Save stores the finished card in the save area, including the placed logos. Open a thumbnail to edit it again; saving again updates that card. Export all downloads each saved card as a PNG. Saves stay in this browser and disappear when site data is cleared.
 - Logos can be browsed without a card, but they cannot be added. Selecting one asks you to upload a card first.
 - Pick a bank, then choose its mark or the lockup with its name. The library also includes payment marks and T-Union.
 - Upload several of your own logos at once (SVG, PNG, JPG, or WebP).
@@ -32,3 +32,9 @@ Open `index.html` to use it.
 - [SVGLOGO](https://github.com/HeyHuazi/SVGLOGO)
 
 These marks are for design preview only. Confirm that you have permission before publishing them. The exported file is a visual design, not a card issued by any institution.
+
+## Submitting material
+
+Submit an image and Submit a logo send the file to a Cloudflare Worker. It stays in private storage until it is approved, then a refresh shows it in the matching category. Card categories are solid, bank, transit, and other. Logos use the existing groups, and a bank logo also names the bank. Do not submit card numbers, names, or photos of real bank cards.
+
+The review service is in `intake/`. If its deployed address differs from `INTAKE` in `app.js`, change only that line. The review password stays in a Cloudflare environment variable.

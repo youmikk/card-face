@@ -244,7 +244,14 @@ input[type="range"] { width: 100%; }
 .bank-picker { display: grid; gap: 6px; margin: 0 0 10px; color: var(--muted); font-size: 13px; }
 .bank-picker[hidden] { display: none; }
 .bank-picker select { min-height: 42px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); padding: 0 12px; }
-.request { border-radius: 999px; background: var(--navy); color: var(--on-accent); padding: 8px 14px; font-size: 13px; text-decoration: none; white-space: nowrap; }
+ .request { border: 0; border-radius: 999px; background: var(--navy); color: var(--on-accent); padding: 8px 14px; font-size: 13px; white-space: nowrap; cursor: pointer; }
+ .submit-form { display: grid; gap: 10px; margin-top: 12px; }
+ .submit-form label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
+ .submit-form input, .submit-form select { min-height: 42px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); padding: 0 12px; }
+ .submit-form input[type="file"] { padding: 8px 12px; }
+ #submit-bank-row[hidden] { display: none; }
+ #submit-send { width: 100%; }
+ #submit-send:disabled { opacity: 0.6; }
  .face-strip .faces { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); max-height: 168px; }
  .faces { margin-top: 12px; }
  .face { display: grid; gap: 4px; justify-items: center; min-height: 72px; padding: 6px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); position: relative; }
