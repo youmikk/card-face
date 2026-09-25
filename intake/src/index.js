@@ -8,22 +8,24 @@ const TYPES = {
 const FACE_CATS = ["solid", "bank", "transit", "other"];
 const LOGO_CATS = ["banks", "transit", "official", "payment"];
 
-export default {
-  async fetch(request, env) {
-    const url = new URL(request.url);
-    if (request.method === "OPTIONS") return cors(new Response(null, { status: 204 }));
-    if (url.pathname === "/manifest" && request.method === "GET") return manifest(request, env);
-    if (url.pathname === "/submit" && request.method === "POST") return submit(request, env);
-    if (url.pathname === "/review" && request.method === "GET") return reviewPage(request, env);
-    if (url.pathname === "/review/items" && request.method === "GET") return reviewItems(request, env);
-    if (url.pathname === "/review/items" && request.method === "POST") return reviewAction(request, env);
-    const pending = url.pathname.match(/^\/review\/file\/([A-Za-z0-9_-]+)$/);
-    if (pending && request.method === "GET") return reviewFile(request, env, pending[1]);
-    const file = url.pathname.match(/^\/files\/([A-Za-z0-9_-]+)$/);
-    if (file && request.method === "GET") return publicFile(request, env, file[1]);
-    return new Response("not found", { status: 404 });
-  },
-};
+ export default {
+   async fetch(request, env) {
+     const url = new URL(request.url);
+     if (request.method === "OPTIONS") return cors(new Response(null, { status: 204 }));
+     if (url.pathname === "/manifest" && request.method === "GET") return manifest(request, env);
+     if (url.pathname === "/submit" && request.method === "POST") return submit(request, env);
+     if (url.pathname === "/review" && request.method === "GET") return reviewPage();
+     if (url.pathname === "/review/password" && request.method === "GET") return passwordState(env);
+     if (url.pathname === "/review/password" && request.method === "POST") return passwordSet(request, env);
+     if (url.pathname === "/review/items" && request.method === "GET") return reviewItems(request, env);
+     if (url.pathname === "/review/items" && request.method === "POST") return reviewAction(request, env);
+     const pending = url.pathname.match(/^\/review\/file\/([A-Za-z0-9_-]+)$/);
+     if (pending && request.method === "GET") return reviewFile(request, env, pending[1]);
+     const file = url.pathname.match(/^\/files\/([A-Za-z0-9_-]+)$/);
+     if (file && request.method === "GET") return publicFile(request, env, file[1]);
+     return new Response("not found", { status: 404 });
+   },
+ };
 
 function cors(response) {
   const headers = new Headers(response.headers);
@@ -87,8 +89,8 @@ async function publicFile(request, env, id) {
   return objectResponse(env, item, true);
 }
 
-async function reviewFile(request, env, id) {
-  if (!authorized(request, env)) return new Response("unauthorized", { status: 401 });
+ async function reviewFile(request, env, id) {
+   if (!(await authorized(request, env))) return new Response("unauthorized", { status: 401 });
   const item = (await records(env)).find((entry) => entry.id === id && entry.status !== "rejected");
   if (!item) return new Response("not found", { status: 404 });
   return objectResponse(env, item, false);
@@ -100,19 +102,35 @@ async function objectResponse(env, item, cache) {
   const headers = new Headers();
   headers.set("Content-Type", object.httpMetadata?.contentType || contentType(item.type));
   headers.set("Cache-Control", cache ? "public, max-age=86400" : "private, no-store");
-  headers.set("Access-Control-Allow-Origin", "*");
-  return new Response(object.body, { headers });
-}
-
-function authorized(request, env) {
-  const header = request.headers.get("Authorization") || "";
-  const token = header.startsWith("Bearer ") ? header.slice(7) : "";
-   const password = String(env.REVIEW_PASSWORD || "").trim();
-  if (!password || token.length !== password.length) return false;
-  let diff = 0;
-  for (let i = 0; i < token.length; i += 1) diff |= token.charCodeAt(i) ^ password.charCodeAt(i);
-  return diff === 0;
-}
+   headers.set("Access-Control-Allow-Origin", "*");
+   return new Response(object.body, { headers });
+ }
+ async function passwordState(env) {
+   const saved = await env.BUCKET.get("review-password.txt");
+   return Response.json({ ready: Boolean(saved) });
+ }
+ async function passwordSet(request, env) {
+   if (await env.BUCKET.get("review-password.txt")) return new Response("already set", { status: 409 });
+   const body = await request.json().catch(() => null);
+   const password = String(body?.password || "").trim();
+   if (password.length < 4 || password.length > 80) return Response.json({ error: "password" }, { status: 400 });
+   await env.BUCKET.put("review-password.txt", password, { httpMetadata: { contentType: "text/plain" } });
+   return Response.json({ ok: true });
+ }
+ async function storedPassword(env) {
+   const saved = await env.BUCKET.get("review-password.txt");
+   if (saved) return new TextDecoder().decode(saved.body).trim();
+   return String(env.REVIEW_PASSWORD || "").trim();
+ }
+ async function authorized(request, env) {
+   const header = request.headers.get("Authorization") || "";
+   const token = (header.startsWith("Bearer ") ? header.slice(7) : "").trim();
+   const password = await storedPassword(env);
+   if (!password || token.length !== password.length) return false;
+   let diff = 0;
+   for (let i = 0; i < token.length; i += 1) diff |= token.charCodeAt(i) ^ password.charCodeAt(i);
+   return diff === 0;
+ }
 
 function reviewPage() {
   return new Response(PAGE, {
@@ -123,14 +141,14 @@ function reviewPage() {
   });
 }
 
-async function reviewItems(request, env) {
-  if (!authorized(request, env)) return new Response("unauthorized", { status: 401 });
+ async function reviewItems(request, env) {
+   if (!(await authorized(request, env))) return new Response("unauthorized", { status: 401 });
   const items = await records(env);
   return Response.json({ items: items.filter((item) => item.status !== "rejected") });
 }
 
-async function reviewAction(request, env) {
-  if (!authorized(request, env)) return new Response("unauthorized", { status: 401 });
+ async function reviewAction(request, env) {
+   if (!(await authorized(request, env))) return new Response("unauthorized", { status: 401 });
   const body = await request.json().catch(() => null);
   if (!body || !body.id) return Response.json({ error: "fields" }, { status: 400 });
   const items = await records(env);
@@ -231,20 +249,39 @@ const PAGE = `<!doctype html>
   <div id="list"></div>
 </main>
 <script>
-let token = "";
-const faces = [["solid","纯色"],["bank","银行"],["transit","交通"],["other","其他"]];
-const logos = [["banks","银行"],["transit","交通联合"],["official","官方"],["payment","支付"]];
-const previews = [];
-function auth() {
-  return { Authorization: "Bearer " + token };
-}
-async function load() {
-  previews.forEach((url) => URL.revokeObjectURL(url));
-  previews.length = 0;
-  token = sessionStorage.getItem("review-token") || "";
-  let response = token ? await fetch("/review/items", { headers: auth() }) : { ok: false };
-  while (!response.ok) {
-    sessionStorage.removeItem("review-token");
+ let token = "";
+ const faces = [["solid","纯色"],["bank","银行"],["transit","交通"],["other","其他"]];
+ const logos = [["banks","银行"],["transit","交通联合"],["official","官方"],["payment","支付"]];
+ const previews = [];
+ function auth() {
+   return { Authorization: "Bearer " + token };
+ }
+ async function load() {
+   previews.forEach((url) => URL.revokeObjectURL(url));
+   previews.length = 0;
+   const state = await fetch("/review/password").then((response) => response.json());
+   if (!state.ready) {
+     const created = (prompt("设置审核密码，设置后不能在页面里修改") || "").trim();
+     if (created.length < 4) {
+       document.querySelector("#list").textContent = "请先设置至少 4 位的审核密码";
+       return;
+     }
+     const saved = await fetch("/review/password", {
+       method: "POST",
+       headers: { "Content-Type": "application/json" },
+       body: JSON.stringify({ password: created }),
+     });
+     if (!saved.ok) {
+       document.querySelector("#list").textContent = "审核密码设置失败";
+       return;
+     }
+     token = created;
+     sessionStorage.setItem("review-token", token);
+   }
+   token = sessionStorage.getItem("review-token") || "";
+   let response = token ? await fetch("/review/items", { headers: auth() }) : { ok: false };
+   while (!response.ok) {
+     sessionStorage.removeItem("review-token");
      token = (prompt("审核密码") || "").trim();
      if (!token) {
        document.querySelector("#list").textContent = "需要审核密码";
@@ -253,7 +290,7 @@ async function load() {
      sessionStorage.setItem("review-token", token);
      response = await fetch("/review/items", { headers: auth() });
      if (!response.ok) document.querySelector("#list").textContent = "密码不对";
-  }
+   }
   const data = await response.json();
   const list = document.querySelector("#list");
   list.replaceChildren();
