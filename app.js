@@ -230,8 +230,9 @@ function faceImage(id) {
  let cardSource = null;
  let saveSeq = saves.reduce((max, entry) => Math.max(max, entry.seq || 0), 0);
  function faceName(face) { return language === "zh" ? face.zh : face.en; }
- let faceCategories = [];
- let faceCategory = "solid";
+let faceCategories = [{ id: "solid", name: "" }, { id: "bank", name: "" }, { id: "transit", name: "" }, { id: "other", name: "" }];
+let logoCategories = [];
+let faceCategory = "solid";
  function renderFaces() {
    const tabs = document.querySelector("#face-cats");
    tabs.replaceChildren();
@@ -1172,16 +1173,18 @@ function applyLanguage() {
   document.querySelectorAll("[data-i18n-label]").forEach((node) => {
     node.setAttribute("aria-label", uiText[language][node.dataset.i18nLabel]);
   });
-   renderTerms();
-   renderTerms();
-   if (catalogReady) {
-     groups = buildGroups();
-     applyApproved();
-     marks = Object.fromEntries(groups.flatMap((group) => group.marks.map((mark) => [mark.id, mark])));
-     renderTabs();
-     renderLibrary();
-     renderFaces();
-   }
+  renderTerms();
+  groups = buildGroups();
+  logoCategories.forEach((entry) => {
+    const group = groups.find((item) => item.id === entry.id);
+    if (group) group.name = entry.name || group.name;
+    else groups.push({ id: entry.id, name: entry.name || entry.id, marks: [] });
+  });
+  applyApproved();
+  marks = Object.fromEntries(groups.flatMap((group) => group.marks.map((mark) => [mark.id, mark])));
+  renderTabs();
+  renderLibrary();
+  renderFaces();
    renderSaves();
   renderLogos();
   syncLogoAvailability();
@@ -1217,29 +1220,23 @@ document.querySelector("#terms-sheet").hidden = localStorage.getItem("card-terms
 applyLanguage();
 paint();
 renderLogos();
- let catalogReady = false;
- const INTAKE = "https://review.youmikk.me";
- async function loadApproved() {
-   try {
-     const response = await fetch(`${INTAKE}/manifest`);
-     if (!response.ok) return;
-     const data = await response.json();
-     approved = Array.isArray(data.items) ? data.items : [];
-     catalogReady = true;
-     if (Array.isArray(data.categories)) {
-       faceCategories = data.categories.filter((entry) => entry && entry.id && (entry.kind || "face") === "face");
-       logoCategories = data.categories.filter((entry) => entry && entry.id && entry.kind === "logo");
-       const logoNames = Object.fromEntries(logoCategories.map((entry) => [entry.id, entry.name]));
-       groups.forEach((group) => { if (logoNames[group.id]) group.name = logoNames[group.id]; });
-       logoCategories.forEach((entry) => {
-         if (!groups.some((group) => group.id === entry.id)) groups.push({ id: entry.id, name: entry.name, marks: [] });
-       });
-     }
-     if (!faceCategories.some((entry) => entry.id === faceCategory) && faceCategories.length) faceCategory = faceCategories[0].id;
-     applyLanguage();
-   } catch {}
- }
- let logoCategories = [];
+const INTAKE = "https://review.youmikk.me";
+async function loadApproved() {
+  try {
+    const response = await fetch(`${INTAKE}/manifest`);
+    if (!response.ok) return;
+    const data = await response.json();
+    approved = Array.isArray(data.items) ? data.items : [];
+    if (Array.isArray(data.categories) && data.categories.length) {
+      const facesFromCatalog = data.categories.filter((entry) => entry && entry.id && (entry.kind || "face") === "face");
+      const logosFromCatalog = data.categories.filter((entry) => entry && entry.id && entry.kind === "logo");
+      if (facesFromCatalog.length) faceCategories = facesFromCatalog;
+      if (logosFromCatalog.length) logoCategories = logosFromCatalog;
+    }
+    if (!faceCategories.some((entry) => entry.id === faceCategory) && faceCategories.length) faceCategory = faceCategories[0].id;
+    applyLanguage();
+  } catch {}
+}
  function submitCategories(kind) {
    if (kind === "face") return faceCategories.map((entry) => [entry.id, entry.name || entry.id]);
    return logoCategories.map((entry) => [entry.id, entry.name || entry.id]);
