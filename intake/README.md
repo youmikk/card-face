@@ -83,6 +83,11 @@ node -e 'const fs=require("node:fs");const src=fs.readFileSync("app.js","utf8");
 2. 在 R2 里删除 `review-password.txt`；
 3. 若怀疑口令曾被他人设置过，删除该文件后即恢复由 `REVIEW_PASSWORD` 控制。
 
+另外：如果 R2 里的 `catalog.json` 停留在早期状态（例如只剩 `纯色 / 卡通 / 其他`），新版会在**读取时一次性补回**
+缺失的内置分类（卡面：纯色 / 银行 / 交通 / 其他；Logo：银行 / 交通联合 / 卡组织素材 / 支付方式），
+并在下一次写入时落盘 `seeded: true` 标记。标记存在之后，你在后台的增删就完全生效、不会再被补回。
+这同时修好了「提交 logo」表单因为没有任何 logo 分类而选不出分类的问题。
+
 ## 测试
 
 ```sh

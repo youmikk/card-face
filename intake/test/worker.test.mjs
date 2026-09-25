@@ -646,3 +646,25 @@ test("例行维护：清扫无记录的孤儿文件，并每天备份一次 reco
   const stamp = new Date().toISOString().slice(0, 10);
   assert.equal(env.BUCKET.keys().includes(`backups/records-${stamp}.json`), true, "应留下当天备份");
 });
+
+test("老清单缺少内置分类时只补一次，之后运营者的删除保持生效", async () => {
+  const env = makeEnv();
+  const ip = "12.0.0.1";
+  await env.BUCKET.put("catalog.json", JSON.stringify({ categories: [{ id: "solid", name: "纯色", kind: "face", role: "plain" }] }), { httpMetadata: { contentType: "application/json" } });
+  const manifest = await (await call(env, "/manifest")).json();
+  const ids = manifest.categories.map((entry) => entry.id);
+  assert.equal(ids.includes("solid"), true);
+  assert.equal(ids.includes("bank"), true, "卡面·银行应被补回");
+  assert.equal(ids.includes("transit"), true, "卡面·交通应被补回");
+  assert.equal(ids.includes("banks"), true, "logo·银行应被补回");
+  assert.equal(ids.includes("official"), true, "logo·卡组织素材应被补回");
+  assert.equal(ids.includes("payment"), true, "logo·支付方式应被补回");
+  const removed = await call(env, "/review/catalog", { method: "POST", token: PASSWORD, ip, payload: { action: "remove-category", id: "transit", confirm: true } });
+  assert.equal(removed.status, 200);
+  const after = await (await call(env, "/manifest")).json();
+  assert.equal(after.categories.some((entry) => entry.id === "transit"), false, "seeded 标记写入后，删除应保持生效");
+  assert.equal(after.categories.some((entry) => entry.id === "banks"), true, "其它内置分类仍在");
+  const stored = JSON.parse(new TextDecoder().decode(env.BUCKET.objects.get("catalog.json").bytes));
+  assert.equal(stored.seeded, true, "应写入 seeded 标记");
+  assert.equal(stored.categories.some((entry) => entry.id === "transit"), false);
+});

@@ -155,7 +155,7 @@ function buildGroups() {
   const text = copy();
   return [
     { id: "banks", name: text.groups.banks, marks: [] },
-    { id: "transit", name: text.groups.transit, marks: [
+    { id: "transit-logo", name: text.groups.transit, marks: [
       { id: "t-union", name: text.groups.transit, src: "assets/transit/t-union.png", width: 220 },
     ] },
     ...Object.entries(text.brands).filter(([id]) => id !== "generic").map(([id, name]) => ({

@@ -62,8 +62,8 @@ const DEFAULT_CATALOG = () => ({
     { id: "transit", name: "交通", kind: "face", role: "plain" },
     { id: "other", name: "其他", kind: "face", role: "other" },
     { id: "banks", name: "银行", kind: "logo", role: "bank" },
-    { id: "transit-logo", name: "交通", kind: "logo", role: "plain" },
-    { id: "official", name: "卡组织", kind: "logo", role: "plain" },
+    { id: "transit-logo", name: "交通联合", kind: "logo", role: "plain" },
+    { id: "official", name: "卡组织素材", kind: "logo", role: "plain" },
     { id: "payment", name: "支付方式", kind: "logo", role: "plain" },
   ],
 });
@@ -350,6 +350,12 @@ function legacyRole(category) {
   return "plain";
 }
 
+/**
+ * 就地归一化清单，并做一次「内置分类补齐」：
+ * 老数据里只有少数分类（例如只剩 纯色/卡通/其他）时，缺的内置分类会按 id 补回来，
+ * 同时写入 seeded 标记；标记存在之后，运营者在后台的增删就完全生效、不再被补回。
+ * 读取路径只在内存里补（立刻对外可见），下一次写入才落盘。
+ */
 function normalizeCatalog(data) {
   const source = data && typeof data === "object" && !Array.isArray(data) ? data : catalogDefault();
   const list = Array.isArray(source.categories) ? source.categories : [];
@@ -362,7 +368,15 @@ function normalizeCatalog(data) {
       role: ROLES.includes(entry.role) ? entry.role : legacyRole(entry),
     }));
   // 就地写回：mutateCatalog 依赖返回对象即传入对象，改动才能被序列化保存
-  source.categories = categories.length ? categories : catalogDefault().categories;
+  const merged = categories.length ? categories : catalogDefault().categories.map((entry) => ({ ...entry }));
+  if (source.seeded !== true) {
+    const have = new Set(merged.map((entry) => entry.id));
+    catalogDefault().categories.forEach((entry) => {
+      if (!have.has(entry.id)) merged.push({ ...entry });
+    });
+    source.seeded = true;
+  }
+  source.categories = merged;
   delete source.hidden; // 历史字段：可见性统一以 item.status 为准，不再维护第二份真相
   return source;
 }
