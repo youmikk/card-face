@@ -224,20 +224,27 @@ const PAGE = `<!doctype html>
   <div id="list"></div>
 </main>
 <script>
-const token = sessionStorage.getItem("review-token") || prompt("审核密码") || "";
-if (token) sessionStorage.setItem("review-token", token);
+let token = "";
 const faces = [["solid","纯色"],["bank","银行"],["transit","交通"],["other","其他"]];
 const logos = [["banks","银行"],["transit","交通联合"],["official","官方"],["payment","支付"]];
-const auth = { Authorization: "Bearer " + token };
 const previews = [];
+function auth() {
+  return { Authorization: "Bearer " + token };
+}
 async function load() {
   previews.forEach((url) => URL.revokeObjectURL(url));
   previews.length = 0;
-  const response = await fetch("/review/items", { headers: auth });
-  if (!response.ok) {
+  token = sessionStorage.getItem("review-token") || "";
+  let response = token ? await fetch("/review/items", { headers: auth() }) : { ok: false };
+  while (!response.ok) {
     sessionStorage.removeItem("review-token");
-    document.querySelector("#list").textContent = "密码不对";
-    return;
+    token = prompt("审核密码") || "";
+    if (!token) {
+      document.querySelector("#list").textContent = "需要审核密码";
+      return;
+    }
+    sessionStorage.setItem("review-token", token);
+    response = await fetch("/review/items", { headers: auth() });
   }
   const data = await response.json();
   const list = document.querySelector("#list");
@@ -246,7 +253,7 @@ async function load() {
     const card = document.createElement("article");
     const preview = document.createElement("img");
     preview.alt = item.name;
-    const file = await fetch("/review/file/" + item.id, { headers: auth });
+    const file = await fetch("/review/file/" + item.id, { headers: auth() });
     if (file.ok) {
       const url = URL.createObjectURL(await file.blob());
       previews.push(url);
@@ -268,7 +275,7 @@ async function load() {
     const reject = document.createElement("button");
     reject.type = "button"; reject.className = "no"; reject.textContent = "拒绝";
     const send = (action) => fetch("/review/items", {
-      method: "POST", headers: { ...auth, "Content-Type": "application/json" },
+      method: "POST", headers: { ...auth(), "Content-Type": "application/json" },
       body: JSON.stringify({
         action, id: item.id,
         name: name.querySelector("input").value,
