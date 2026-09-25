@@ -55,6 +55,8 @@ async function submit(request, env) {
   const file = form.get("file");
   const allowed = kind === "face" ? FACE_CATS : kind === "logo" ? LOGO_CATS : null;
   if (!name || !allowed || !allowed.includes(category) || !(file instanceof File)) return json({ error: "fields" }, 400);
+  const label = String(form.get("label") || "").trim().slice(0, 24);
+  if (category === "other" && !label) return json({ error: "label" }, 400);
   if (kind === "logo" && category === "banks" && !/^[A-Za-z0-9_-]{2,16}$/.test(bank)) return json({ error: "bank" }, 400);
   const type = TYPES[file.type] || extOf(file.name);
   if (!type || file.size <= 0 || file.size > MAX_BYTES) return json({ error: "file" }, 400);
@@ -70,6 +72,7 @@ async function submit(request, env) {
     name,
     category,
     bank: kind === "logo" && category === "banks" ? bank : "",
+    label: category === "other" ? label : "",
     type,
     key,
     status: "pending",
@@ -104,7 +107,7 @@ async function objectResponse(env, item, cache) {
 function authorized(request, env) {
   const header = request.headers.get("Authorization") || "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : "";
-  const password = env.REVIEW_PASSWORD || "";
+   const password = String(env.REVIEW_PASSWORD || "").trim();
   if (!password || token.length !== password.length) return false;
   let diff = 0;
   for (let i = 0; i < token.length; i += 1) diff |= token.charCodeAt(i) ^ password.charCodeAt(i);
@@ -138,12 +141,15 @@ async function reviewAction(request, env) {
   } else if (body.action === "approve") {
     const allowed = item.kind === "face" ? FACE_CATS : LOGO_CATS;
     if (!allowed.includes(body.category)) return Response.json({ error: "category" }, { status: 400 });
+    const label = String(body.label || item.label || "").trim().slice(0, 24);
+    if (body.category === "other" && !label) return Response.json({ error: "label" }, { status: 400 });
     if (item.kind === "logo" && body.category === "banks" && !/^[A-Za-z0-9_-]{2,16}$/.test(String(body.bank || ""))) {
       return Response.json({ error: "bank" }, { status: 400 });
     }
     item.category = body.category;
     item.bank = item.kind === "logo" && body.category === "banks" ? String(body.bank || "") : "";
     if (body.name) item.name = String(body.name).trim().slice(0, 40);
+    item.label = body.category === "other" ? label : "";
     const next = `approved/${item.id}.${item.type}`;
     if (item.key !== next) {
       const object = await env.BUCKET.get(item.key);
@@ -167,6 +173,7 @@ function publicItem(item, origin) {
     name: item.name,
     category: item.category,
     bank: item.bank || "",
+    label: item.label || "",
     url: `${origin}/files/${item.id}`,
     width: 132,
   };
@@ -238,13 +245,14 @@ async function load() {
   let response = token ? await fetch("/review/items", { headers: auth() }) : { ok: false };
   while (!response.ok) {
     sessionStorage.removeItem("review-token");
-    token = prompt("审核密码") || "";
-    if (!token) {
-      document.querySelector("#list").textContent = "需要审核密码";
-      return;
-    }
-    sessionStorage.setItem("review-token", token);
-    response = await fetch("/review/items", { headers: auth() });
+     token = (prompt("审核密码") || "").trim();
+     if (!token) {
+       document.querySelector("#list").textContent = "需要审核密码";
+       return;
+     }
+     sessionStorage.setItem("review-token", token);
+     response = await fetch("/review/items", { headers: auth() });
+     if (!response.ok) document.querySelector("#list").textContent = "密码不对";
   }
   const data = await response.json();
   const list = document.querySelector("#list");
@@ -264,9 +272,12 @@ async function load() {
     const cats = item.kind === "face" ? faces : logos;
     const category = select("分类", cats, item.category);
     const bank = field("银行编号", "text", item.bank || "");
+    const custom = field("自定义分类", "text", item.label || "");
     bank.hidden = !(item.kind === "logo" && category.querySelector("select").value === "banks");
+    custom.hidden = category.querySelector("select").value !== "other";
     category.querySelector("select").addEventListener("change", (event) => {
       bank.hidden = !(item.kind === "logo" && event.target.value === "banks");
+      custom.hidden = event.target.value !== "other";
     });
     const row = document.createElement("div");
     row.className = "row";
@@ -281,12 +292,13 @@ async function load() {
         name: name.querySelector("input").value,
         category: category.querySelector("select").value,
         bank: bank.querySelector("input").value,
+        label: custom.querySelector("input").value,
       }),
     }).then(() => load());
     approve.addEventListener("click", () => send("approve"));
     reject.addEventListener("click", () => send("reject"));
     row.append(approve, reject);
-    form.append(name, category, bank, row);
+    form.append(name, category, bank, custom, row);
     card.append(preview, form);
     list.appendChild(card);
   }
