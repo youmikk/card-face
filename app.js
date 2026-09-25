@@ -607,6 +607,11 @@ function renderTabs() {
     button.addEventListener("click", () => { activeGroup = group.id; renderTabs(); renderLibrary(); });
     box.appendChild(button);
   });
+  // 手机上分类条是横向滚动的：把当前分类滚进可视区（只滚动容器，不影响页面滚动位置）
+  const active = box.querySelector(".tab.active");
+  if (active && box.scrollWidth > box.clientWidth) {
+    box.scrollLeft += active.getBoundingClientRect().left - box.getBoundingClientRect().left - 8;
+  }
 }
 
 function bankMarks(bank) {
