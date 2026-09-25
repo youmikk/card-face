@@ -29,6 +29,32 @@ const ROLES = ["plain", "bank", "other"];
 const STATUS = { pending: "pending", approved: "approved", rejected: "rejected", hidden: "hidden" };
 const TYPES = { png: "image/png", jpg: "image/jpeg", webp: "image/webp", svg: "image/svg+xml" };
 
+/* 银行编号白名单：与本仓库 app.js 的 bankIndex 同步（154 家）。
+   审核页的「银行编号」由这份名单出下拉，服务端同时按它校验——否则手误写成 ICBX 之类，
+   审核通过后该 logo 在站点上永远不会显示（前端只按 bankIndex 里的 id 匹配）。
+   新增银行后需要重新生成本数组，方法见 intake/README.md。 */
+const BANK_IDS = [
+  "ABC", "ADBC", "BCCB", "BGB", "BHB", "BLY", "BOAS", "BOB", "BOBD", "BOC",
+  "BOCY", "BOCZ", "BOD", "BODD", "BOGS", "BOGZ", "BOHAIB", "BOHLD", "BOHS", "BOHZ",
+  "BOJL", "BOLF", "BOLY", "BOP", "BOPJ", "BOQZ", "BOSC", "BOSZ", "BOTJ", "BOTL",
+  "BOTS", "BOXZ", "BOYK", "BSCB", "CABANK", "CCB", "CCQTGB", "CDB", "CDBANK", "CDCB",
+  "CEB", "CIB", "CITIC", "CMB", "CMBC", "COMM", "CQBANK", "CTS", "CZB", "CZBANK",
+  "CZCB", "DCCB", "DLB", "DTB", "DYCCB", "DZBANK", "EGBANK", "EIBOF", "FDBANK", "FJHXBC",
+  "FSCB", "FXCB", "GDB", "GHB", "GLBANK", "GWB", "GYCCB", "GZCB", "H3CB", "HBC",
+  "HDBANK", "HKB", "HMCCB", "HNB", "HRBCB", "HRXJB", "HSBANK", "HXB", "HZCB", "ICBC",
+  "JHCCB", "JINCHB", "JJCCB", "JNBANK", "JSB", "JSBANK", "JSCJCB", "JXB", "JXBANK", "JZB",
+  "JZBANK", "KCCCB", "KLB", "LJBANK", "LSBANK", "LSBC", "LSCCB", "LZB", "LZBANK", "LZCCB",
+  "MTBANK", "MYCCB", "Mybank", "NBCB", "NBCMB", "NDHB", "NJCB", "NXBANK", "NYBANK", "ORDOSB",
+  "PBOC", "PSBC", "QDCCB", "QHBANK", "QHDBANK", "QJCCCB", "QLBANK", "QSB", "RBOZ", "RZB",
+  "SCB", "SCTFB", "SJBANK", "SNBANK", "SPABANK", "SPDB", "SRBANK", "SXCB", "SZSBK", "TACCB",
+  "TLCB", "TZBANK", "UCCB", "WFCCB", "WHBANK", "WHCCB", "WZBANK", "XABANK", "XJB", "XJHB",
+  "XMBANK", "XMINTB", "XTB", "YACCB", "YBCCB", "YKYHB", "YNHTBANK", "YQCCB", "YTB", "ZGBANK",
+  "ZJKCCB", "ZYBANK", "ZZB", "ZZBANK",
+];
+const BANK_ID_SET = new Set(BANK_IDS);
+const MANIFEST_KEY = "manifest.json";
+const BACKUP_PREFIX = "backups/records-";
+
 const DEFAULT_CATALOG = () => ({
   categories: [
     { id: "solid", name: "纯色", kind: "face", role: "plain" },
@@ -40,7 +66,6 @@ const DEFAULT_CATALOG = () => ({
     { id: "official", name: "卡组织", kind: "logo", role: "plain" },
     { id: "payment", name: "支付方式", kind: "logo", role: "plain" },
   ],
-  hidden: [],
 });
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -145,6 +170,12 @@ function authPassed(key) {
 
 async function sha256hex(value) {
   const bytes = new TextEncoder().encode(String(value));
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+/** 对原始字节求 SHA-256（内容指纹/去重用），与对文本求值的 sha256hex 区分开。 */
+async function sha256bytesHex(bytes) {
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
@@ -332,7 +363,7 @@ function normalizeCatalog(data) {
     }));
   // 就地写回：mutateCatalog 依赖返回对象即传入对象，改动才能被序列化保存
   source.categories = categories.length ? categories : catalogDefault().categories;
-  source.hidden = Array.isArray(source.hidden) ? [...new Set(source.hidden.map(String))] : [];
+  delete source.hidden; // 历史字段：可见性统一以 item.status 为准，不再维护第二份真相
   return source;
 }
 
@@ -446,14 +477,39 @@ function tooLarge(size) {
 
 /* ------------------------------------------------------------ 公开接口 */
 
+async function buildManifest(env, origin) {
+  const data = await catalog(env);
+  const items = (await records(env))
+    .filter((item) => item.status === STATUS.approved)
+    .map((item) => publicItem(item, origin));
+  return { items, categories: publicCategories(data), updated: new Date().toISOString() };
+}
+
+/** 状态一变就重建派生清单：/manifest 只需读一个小对象，前台每次访问不再解析整份记录。 */
+async function rebuildManifest(env, origin) {
+  const data = await buildManifest(env, origin);
+  await env.BUCKET.put(MANIFEST_KEY, JSON.stringify(data), { httpMetadata: { contentType: "application/json" } });
+  return data;
+}
+
 async function manifest(request, env) {
   const origin = new URL(request.url).origin;
-  const data = await catalog(env);
-  const hidden = new Set(data.hidden);
-  const items = (await records(env))
-    .filter((item) => item.status === STATUS.approved && !hidden.has(item.id))
-    .map((item) => publicItem(item, origin));
-  return json({ items, categories: publicCategories(data) });
+  const object = await env.BUCKET.get(MANIFEST_KEY);
+  if (object) {
+    const etag = object.etag ? `"${object.etag}"` : null;
+    const headers = new Headers({
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "public, max-age=60, stale-while-revalidate=600",
+      "Access-Control-Allow-Origin": "*",
+      "X-Content-Type-Options": "nosniff",
+      "Referrer-Policy": "no-referrer",
+    });
+    if (etag) headers.set("ETag", etag);
+    if (etag && request.headers.get("If-None-Match") === etag) return new Response(null, { status: 304, headers });
+    return new Response(object.body, { headers });
+  }
+  // 派生清单还不存在（或写入失败）时即时构建，保证前台始终可用
+  return json(await buildManifest(env, origin));
 }
 
 async function submit(request, env) {
@@ -484,18 +540,20 @@ async function submit(request, env) {
   const bytes = new Uint8Array(await file.arrayBuffer());
   const type = detectType(bytes);
   if (!type || !TYPES[type]) return json({ error: "file" }, 400);
+  const dim = type === "svg" ? null : imageSize(type, bytes);
   if (type === "svg") {
     const text = new TextDecoder("utf-8").decode(bytes);
     if (!isSafeSvg(text)) return json({ error: "svg" }, 400);
-  } else if (tooLarge(imageSize(type, bytes))) {
+  } else if (tooLarge(dim)) {
     return json({ error: "size", maxSide: MAX_SIDE }, 400);
   }
 
   const needsBank = kind === "logo" && target.role === "bank";
-  if (needsBank && !/^[A-Za-z0-9_-]{2,16}$/.test(bank)) return json({ error: "bank" }, 400);
+  if (needsBank && !BANK_ID_SET.has(bank)) return json({ error: "bank" }, 400);
 
   const id = crypto.randomUUID().replace(/-/g, "");
   const key = `pending/${id}.${type}`;
+  const hash = await sha256bytesHex(bytes);
   await env.BUCKET.put(key, bytes, { httpMetadata: { contentType: TYPES[type] } });
 
   try {
@@ -514,6 +572,11 @@ async function submit(request, env) {
         key,
         status: STATUS.pending,
         created: new Date().toISOString(),
+        width: dim ? dim.width : 0,
+        height: dim ? dim.height : 0,
+        size: bytes.length,
+        hash,
+        reviewedAt: "",
       });
       return { commit: true, result: true };
     });
@@ -528,11 +591,12 @@ async function submit(request, env) {
   return json({ ok: true });
 }
 
-function fileHeaders(item, cache) {
+function fileHeaders(item, cache, etag) {
   const headers = new Headers();
   const type = TYPES[item.type] || "application/octet-stream";
   headers.set("Content-Type", type);
-  headers.set("Cache-Control", cache ? "public, max-age=86400" : "private, no-store");
+  headers.set("Cache-Control", cache ? "public, max-age=86400, stale-while-revalidate=604800" : "private, no-store");
+  if (etag) headers.set("ETag", etag);
   headers.set("Access-Control-Allow-Origin", "*");
   headers.set("X-Content-Type-Options", "nosniff");
   headers.set("Referrer-Policy", "no-referrer");
@@ -541,18 +605,20 @@ function fileHeaders(item, cache) {
   return headers;
 }
 
-async function objectResponse(env, item, cache) {
+async function objectResponse(request, env, item, cache) {
   const object = await env.BUCKET.get(item.key);
   if (!object) return new Response("not found", { status: 404 });
-  return new Response(object.body, { headers: fileHeaders(item, cache) });
+  const etag = object.etag ? `"${object.etag}"` : null;
+  if (etag && request.headers.get("If-None-Match") === etag) {
+    return new Response(null, { status: 304, headers: fileHeaders(item, cache, etag) });
+  }
+  return new Response(object.body, { headers: fileHeaders(item, cache, etag) });
 }
 
 async function publicFile(request, env, id) {
-  const data = await catalog(env);
-  if (data.hidden.includes(id)) return new Response("not found", { status: 404 });
   const item = (await records(env)).find((entry) => entry.id === id && entry.status === STATUS.approved);
   if (!item) return new Response("not found", { status: 404 });
-  return objectResponse(env, item, true);
+  return objectResponse(request, env, item, true);
 }
 
 async function reviewFile(request, env, id) {
@@ -560,7 +626,15 @@ async function reviewFile(request, env, id) {
   if (guardResult.error) return guardResult.error;
   const item = (await records(env)).find((entry) => entry.id === id && entry.status !== STATUS.rejected);
   if (!item) return new Response("not found", { status: 404 });
-  return objectResponse(env, item, false);
+  return objectResponse(request, env, item, false);
+}
+
+function logoWidth(item) {
+  const w = Number(item.width) || 0;
+  const h = Number(item.height) || 0;
+  if (!w || !h) return 132;
+  // 前端按「初始宽度」摆放 logo：按高宽比换算成高约 40px 的宽度，限制在 60–200 之间
+  return Math.round(Math.min(200, Math.max(60, (40 * w) / h)));
 }
 
 function publicItem(item, origin) {
@@ -572,32 +646,97 @@ function publicItem(item, origin) {
     bank: item.bank || "",
     label: item.label || "",
     url: `${origin}/files/${item.id}`,
-    width: 132,
+    width: logoWidth(item),
   };
 }
 
 /* ------------------------------------------------------------ 审核接口 */
 
+/* ------------------------------------------------------- 审核端小工具 */
+
+function bankAllowed(bank, items) {
+  if (!bank) return false;
+  if (BANK_ID_SET.has(bank)) return true;
+  // 允许沿用历史上已存在的编号：避免早期手工填过的数据无法再编辑
+  return items.some((item) => item.bank === bank);
+}
+
+function paging(url, defLimit = 60) {
+  const limit = Math.min(200, Math.max(1, Number(url.searchParams.get("limit")) || defLimit));
+  const offset = Math.max(0, Number(url.searchParams.get("offset")) || 0);
+  const q = String(url.searchParams.get("q") || "").trim().toLowerCase().slice(0, 40);
+  return { limit, offset, q };
+}
+
+function matchesQuery(item, q) {
+  if (!q) return true;
+  return [item.name, item.label, item.bank, item.id].some((value) => String(value || "").toLowerCase().includes(q));
+}
+
+/** 审核页统一使用的条目视图（带运营需要的提交时间/大小/尺寸/指纹等元数据）。 */
+function adminItem(item) {
+  return {
+    id: item.id,
+    kind: item.kind,
+    name: item.name,
+    category: item.category,
+    bank: item.bank || "",
+    label: item.label || "",
+    type: item.type,
+    status: item.status,
+    created: item.created || "",
+    reviewedAt: item.reviewedAt || "",
+    width: Number(item.width) || 0,
+    height: Number(item.height) || 0,
+    size: Number(item.size) || 0,
+    hash: item.hash || "",
+    url: `/review/file/${item.id}`,
+  };
+}
+
 async function reviewItems(request, env) {
   const guardResult = await guard(request, env);
   if (guardResult.error) return guardResult.error;
-  await housekeeping(env).catch(() => {});
-  const items = (await records(env)).filter((item) => item.status === STATUS.pending);
-  return json({ items });
+  await housekeeping(env, new URL(request.url).origin).catch(() => {});
+  const url = new URL(request.url);
+  const { limit, offset, q } = paging(url);
+  const all = await records(env);
+  const pending = all.filter((item) => item.status === STATUS.pending && matchesQuery(item, q)).reverse();
+  return json({
+    items: pending.slice(offset, offset + limit).map(adminItem),
+    total: pending.length,
+    limit,
+    offset,
+    banks: BANK_IDS,
+  });
 }
 
 async function catalogGet(request, env) {
   const guardResult = await guard(request, env);
   if (guardResult.error) return guardResult.error;
-  await housekeeping(env).catch(() => {});
+  await housekeeping(env, new URL(request.url).origin).catch(() => {});
+  const url = new URL(request.url);
   const data = await catalog(env);
+  const { limit, offset, q } = paging(url, 80);
+  const kind = url.searchParams.get("kind") === "logo" ? "logo" : "face";
+  const category = String(url.searchParams.get("category") || "");
   const all = await records(env);
-  const hidden = new Set(data.hidden);
-  const items = all.filter((item) => item.status === STATUS.approved && !hidden.has(item.id));
-  const hiddenItems = all
-    .filter((item) => item.status === STATUS.hidden)
-    .map((item) => ({ id: item.id, name: item.name, kind: item.kind, category: item.category }));
-  return json({ categories: data.categories, items, hidden: hiddenItems });
+  const approved = all.filter((item) => item.status === STATUS.approved);
+  const counts = {};
+  approved.forEach((item) => { counts[item.category] = (counts[item.category] || 0) + 1; });
+  const inCategory = approved.filter((item) => item.kind === kind && (!category || item.category === category) && matchesQuery(item, q));
+  const hidden = all.filter((item) => item.status === STATUS.hidden && matchesQuery(item, q));
+  return json({
+    categories: data.categories,
+    counts,
+    items: inCategory.slice(offset, offset + limit).map(adminItem),
+    total: inCategory.length,
+    hidden: hidden.slice(0, 200).map(adminItem),
+    hiddenTotal: hidden.length,
+    banks: [...new Set([...BANK_IDS, ...all.map((item) => item.bank).filter(Boolean)])].sort(),
+    limit,
+    offset,
+  });
 }
 
 async function reviewAction(request, env) {
@@ -605,17 +744,20 @@ async function reviewAction(request, env) {
   if (guardResult.error) return guardResult.error;
   const body = await request.json().catch(() => null);
   if (!body || !body.id) return json({ error: "fields" }, 400);
+  const origin = new URL(request.url).origin;
   const data = await catalog(env);
+  const now = new Date().toISOString();
   const outcome = await mutateRecords(env, async (items) => {
     const item = items.find((entry) => entry.id === body.id);
     if (!item) return { commit: false, result: { error: "missing", status: 404 } };
-    // 只处理待审条目：已通过的要用「隐藏」（软删除），否则会删掉线上文件且无法恢复；
+    // 只处理待审条目：已通过的要用「隐藏」或「删除」，否则会删掉线上文件且无法恢复；
     // 被拒绝的条目文件已删除，也不能再通过。
     if (item.status !== STATUS.pending) return { commit: false, result: { error: "state", status: 409 } };
     if (body.action === "reject") {
       const key = item.key || "";
       item.status = STATUS.rejected;
-      item.rejectedAt = Date.now();
+      item.rejectedAt = now;
+      item.reviewedAt = now;
       item.key = "";
       return { commit: true, result: { ok: true, key } };
     }
@@ -623,14 +765,19 @@ async function reviewAction(request, env) {
     const target = data.categories.find((entry) => entry.id === body.category && entry.kind === item.kind);
     if (!target) return { commit: false, result: { error: "category", status: 400 } };
     const label = String(body.label || item.label || "").trim().slice(0, 24);
-    if (target.role === "bank" && !/^[A-Za-z0-9_-]{2,16}$/.test(String(body.bank || ""))) {
+    const bank = String(body.bank || "").trim();
+    if (target.role === "bank" && !bankAllowed(bank, items)) {
       return { commit: false, result: { error: "bank", status: 400 } };
     }
     if (!item.key) return { commit: false, result: { error: "file", status: 404 } };
     item.category = target.id;
-    item.bank = target.role === "bank" ? String(body.bank || "") : "";
+    item.bank = target.role === "bank" ? bank : "";
     if (body.name) item.name = String(body.name).trim().slice(0, 40) || item.name;
     item.label = label;
+    item.status = STATUS.approved;
+    item.reviewedAt = now;
+    delete item.hiddenAt;
+    delete item.hiddenFrom;
     // 通过后把对象从 pending/ 迁到 approved/（幂等：重试时源已不在则接受已迁移的目标）
     const next = `approved/${item.id}.${item.type}`;
     if (item.key !== next) {
@@ -643,15 +790,13 @@ async function reviewAction(request, env) {
       }
       item.key = next;
     }
-    item.status = STATUS.approved;
-    delete item.hiddenAt;
-    delete item.hiddenFrom;
     return { commit: true, result: { ok: true, key: item.id } };
   });
   if (outcome && outcome.error) return json({ error: outcome.error }, outcome.status);
   if (body.action === "reject" && outcome && outcome.key) {
     await env.BUCKET.delete(outcome.key);
   }
+  await rebuildManifest(env, origin).catch(() => {});
   return json({ ok: true });
 }
 
@@ -660,35 +805,75 @@ async function catalogAction(request, env) {
   if (guardResult.error) return guardResult.error;
   const body = await request.json().catch(() => null);
   if (!body || !body.action) return json({ error: "fields" }, 400);
-  // 只改记录的动作各用自己的乐观锁，不必整份重写分类
-  if (body.action === "move-face") {
-    const data = await catalog(env);
+  const origin = new URL(request.url).origin;
+  const now = new Date().toISOString();
+  const snapshot = await catalog(env);
+
+  // 只改记录的动作（改名 / 改分类 / 详细编辑 / 隐藏）：用记录自身的乐观锁即可
+  if (body.action === "move-face" || body.action === "rename-item" || body.action === "update-item" || body.action === "hide-item" || body.action === "hide-face") {
     const outcome = await mutateRecords(env, (items) => {
       const item = items.find((entry) => entry.id === body.id);
       if (!item) return { commit: false, result: { error: "missing", status: 404 } };
-      const target = data.categories.find((entry) => entry.id === body.category && entry.kind === item.kind);
+      if (body.action === "hide-item" || body.action === "hide-face") {
+        if (item.status !== STATUS.hidden) {
+          item.status = STATUS.hidden;
+          item.hiddenAt = now;
+          item.hiddenFrom = item.category || "";
+        }
+        return { commit: true, result: { ok: true } };
+      }
+      if (body.action === "rename-item") {
+        const name = String(body.name || "").trim().slice(0, 40);
+        if (!name) return { commit: false, result: { error: "name", status: 400 } };
+        item.name = name;
+        item.updatedAt = now;
+        return { commit: true, result: { ok: true } };
+      }
+      const wanted = String(body.category || item.category || "");
+      const target = snapshot.categories.find((entry) => entry.id === wanted && entry.kind === item.kind);
       if (!target) return { commit: false, result: { error: "category", status: 400 } };
+      if (body.action === "update-item") {
+        const name = String(body.name === undefined ? item.name : body.name).trim().slice(0, 40);
+        if (!name) return { commit: false, result: { error: "name", status: 400 } };
+        const label = String(body.label === undefined ? item.label || "" : body.label).trim().slice(0, 24);
+        const bank = String(body.bank === undefined ? item.bank || "" : body.bank).trim();
+        if (target.role === "bank" && !bankAllowed(bank, items)) {
+          return { commit: false, result: { error: "bank", status: 400 } };
+        }
+        item.name = name;
+        item.label = label;
+        item.bank = target.role === "bank" ? bank : "";
+      } else if (item.kind === "logo" && target.role !== "bank") {
+        item.bank = "";
+      }
       item.category = target.id;
-      if (item.kind === "logo") item.bank = target.role === "bank" ? item.bank : "";
+      item.updatedAt = now;
       return { commit: true, result: { ok: true } };
     });
     if (outcome && outcome.error) return json({ error: outcome.error }, outcome.status);
+    await rebuildManifest(env, origin).catch(() => {});
     return json({ ok: true });
   }
-  if (body.action === "rename-item") {
-    const name = String(body.name || "").trim().slice(0, 40);
-    if (!name) return json({ error: "name" }, 400);
+
+  // 永久删除：文件与记录一起删掉（页面会二次确认）
+  if (body.action === "delete-item") {
+    if (body.confirm !== true) return json({ error: "confirm" }, 400);
+    let doomedKey = "";
     const outcome = await mutateRecords(env, (items) => {
-      const item = items.find((entry) => entry.id === body.id);
-      if (!item) return { commit: false, result: { error: "missing", status: 404 } };
-      item.name = name;
+      const index = items.findIndex((entry) => entry.id === body.id);
+      if (index < 0) return { commit: false, result: { error: "missing", status: 404 } };
+      doomedKey = items[index].key || "";
+      items.splice(index, 1);
       return { commit: true, result: { ok: true } };
     });
     if (outcome && outcome.error) return json({ error: outcome.error }, outcome.status);
+    if (doomedKey) await env.BUCKET.delete(doomedKey);
+    console.log("intake: 删除条目", body.id);
+    await rebuildManifest(env, origin).catch(() => {});
     return json({ ok: true });
   }
-  // 其余动作会改动 catalog.json，全部走乐观锁；mutator 内的记录改动是幂等的，
-  // 冲突重试时重复执行不会产生额外副作用。
+
+  // 其余动作会改动 catalog.json，全部走乐观锁；mutator 内的记录改动是幂等的
   const outcome = await mutateCatalog(env, async (data) => {
     const fail = (error, status) => ({ commit: false, result: { error, status } });
     if (body.action === "add-category" || body.action === "rename-category") {
@@ -722,24 +907,20 @@ async function catalogAction(request, env) {
         return { commit: false, result: { ok: false, needConfirm: true, affected: { items: affected.length, hidden: true } } };
       }
       const siblings = data.categories.filter((entry) => entry.kind === target.kind && entry.id !== target.id);
-      const hiddenIds = (await mutateRecords(env, (items) => {
-        const moved = [];
+      const movedCount = (await mutateRecords(env, (items) => {
+        let touched = 0;
         items.forEach((item) => {
-          if (item.kind !== target.kind) return;
-          if (item.category === target.id) {
-            item.category = siblings.length ? siblings[0].id : "";
-            item.status = STATUS.hidden;
-            item.hiddenAt = Date.now();
-            item.hiddenFrom = target.id;
-          }
-          // 重试路径上条目已迁移过，靠 hiddenFrom 仍能把它记回隐藏清单
-          if (item.status === STATUS.hidden && item.hiddenFrom === target.id) moved.push(item.id);
+          if (item.kind !== target.kind || item.category !== target.id) return;
+          item.category = siblings.length ? siblings[0].id : "";
+          item.status = STATUS.hidden;
+          item.hiddenAt = now;
+          item.hiddenFrom = target.id;
+          touched += 1;
         });
-        return { commit: moved.length > 0, result: moved };
-      })) || [];
+        return { commit: touched > 0, result: touched };
+      })) || 0;
       data.categories = data.categories.filter((entry) => entry.id !== target.id);
-      data.hidden = [...new Set([...data.hidden, ...hiddenIds])];
-      return { commit: true, result: { ok: true, hidden: hiddenIds.length } };
+      return { commit: true, result: { ok: true, hidden: movedCount } };
     }
     if (body.action === "restore-item") {
       const restored = await mutateRecords(env, (items) => {
@@ -758,8 +939,7 @@ async function catalogAction(request, env) {
         return { commit: true, result: { ok: true } };
       });
       if (restored && restored.error) return { commit: false, result: restored };
-      data.hidden = data.hidden.filter((id) => id !== body.id);
-      return { commit: true, result: { ok: true } };
+      return { commit: false, result: { ok: true } };
     }
     if (body.action === "move-category") {
       const index = data.categories.findIndex((entry) => entry.id === body.id);
@@ -770,22 +950,10 @@ async function catalogAction(request, env) {
       data.categories.splice(next, 0, entry);
       return { commit: true, result: { ok: true } };
     }
-    if (body.action === "hide-item" || body.action === "hide-face") {
-      const hidden = await mutateRecords(env, (items) => {
-        const item = items.find((entry) => entry.id === body.id);
-        if (!item) return { commit: false, result: { error: "missing", status: 404 } };
-        if (item.status === STATUS.hidden) return { commit: false, result: { ok: true } };
-        item.status = STATUS.hidden;
-        item.hiddenAt = Date.now();
-        return { commit: true, result: { ok: true } };
-      });
-      if (hidden && hidden.error) return { commit: false, result: hidden };
-      data.hidden = [...new Set([...data.hidden, String(body.id)])];
-      return { commit: true, result: { ok: true } };
-    }
     return fail("action", 400);
   });
   if (outcome && outcome.error) return json({ error: outcome.error }, outcome.status || 400);
+  await rebuildManifest(env, origin).catch(() => {});
   return json(outcome || { ok: true });
 }
 
@@ -794,41 +962,64 @@ async function catalogAction(request, env) {
  * 年龄按「进入该状态的时间」计算，否则刚隐藏的老条目会被立刻清掉。
  * 待删除清单只取自提交成功的那一次 mutator 结果，避免重试时累积。
  */
-async function housekeeping(env) {
+/**
+ * 例行维护：过期清理（拒绝 30 天、隐藏 30 天连同文件一起删）、孤儿对象清扫、每日备份。
+ * 待删除清单只取当次 mutator 结果，避免重试累积；年龄按「进入该状态的时间」算。
+ */
+async function housekeeping(env, origin) {
   const now = Date.now();
   const outcome = await mutateRecords(env, (items) => {
     const keep = [];
     const doomed = [];
-    const ids = [];
+    let changed = false;
     items.forEach((item) => {
       const since = Date.parse(item.hiddenAt || item.rejectedAt || item.created || 0);
       const age = Number.isFinite(since) ? now - since : 0;
-      if (item.status === STATUS.rejected && age > RECORD_TTL_DAYS * DAY) {
-        ids.push(item.id);
-        return;
-      }
-      if (item.status === STATUS.hidden && age > HIDDEN_TTL_DAYS * DAY) {
-        ids.push(item.id);
-        doomed.push(item);
-        return;
-      }
+      if (item.status === STATUS.rejected && age > RECORD_TTL_DAYS * DAY) { changed = true; return; }
+      if (item.status === STATUS.hidden && age > HIDDEN_TTL_DAYS * DAY) { doomed.push(item); changed = true; return; }
       keep.push(item);
     });
-    if (keep.length === items.length) return { commit: false, result: { doomed: [], ids: [] } };
+    if (!changed) return { commit: false, result: { doomed: [], changed: false } };
     items.length = 0;
     items.push(...keep);
-    return { commit: true, result: { doomed, ids } };
+    return { commit: true, result: { doomed, changed: true } };
   });
-  const { doomed, ids } = outcome || { doomed: [], ids: [] };
-  if (!doomed.length && !ids.length) return;
-  await Promise.all(doomed.map((item) => (item.key ? env.BUCKET.delete(item.key) : null)));
-  const dropped = new Set(ids);
-  await mutateCatalog(env, (data) => {
-    const next = data.hidden.filter((id) => !dropped.has(id));
-    if (next.length === data.hidden.length) return { commit: false };
-    data.hidden = next;
-    return { commit: true };
-  });
+  const { doomed, changed } = outcome || { doomed: [], changed: false };
+  if (doomed.length) await Promise.all(doomed.map((item) => (item.key ? env.BUCKET.delete(item.key) : null)));
+  if (changed && origin) await rebuildManifest(env, origin).catch(() => {});
+  await sweepOrphans(env);
+  await backupRecords(env);
+}
+
+/** 清理「有文件、没记录」的孤儿对象（提交写到一半失败会留下），只删超过 1 天的。 */
+async function sweepOrphans(env) {
+  try {
+    const list = await env.BUCKET.list({ prefix: "pending/", limit: 500 });
+    const objects = list && Array.isArray(list.objects) ? list.objects : [];
+    if (!objects.length) return;
+    const items = await records(env);
+    const known = new Set(items.map((item) => item.key).filter(Boolean));
+    const cutoff = Date.now() - DAY;
+    const stale = objects.filter((object) => !known.has(object.key) && new Date(object.uploaded || 0).getTime() < cutoff);
+    if (!stale.length) return;
+    await Promise.all(stale.map((object) => env.BUCKET.delete(object.key)));
+    console.warn("intake: 已清理孤儿对象", stale.length);
+  } catch (error) {
+    console.warn("intake: 孤儿清理跳过", String((error && error.message) || error));
+  }
+}
+
+/** 每天留一份 records.json 备份（当天已备份则跳过）。 */
+async function backupRecords(env) {
+  try {
+    const key = `${BACKUP_PREFIX}${new Date().toISOString().slice(0, 10)}.json`;
+    if (await env.BUCKET.head(key)) return;
+    const object = await env.BUCKET.get(RECORDS_KEY);
+    if (!object) return;
+    await env.BUCKET.put(key, object.body, { httpMetadata: { contentType: "application/json" } });
+  } catch (error) {
+    console.warn("intake: 备份跳过", String((error && error.message) || error));
+  }
 }
 
 /* ------------------------------------------------------------ 审核页面 */
@@ -880,9 +1071,14 @@ const PAGE_TEMPLATE = `<!doctype html>
   .ok { background: #1b2b40; color: #fff; }
   .no { background: #fff; color: #c44747; box-shadow: inset 0 0 0 1px #f0d0d0; }
   .empty { margin: 8px 0 0; }
+  .empty { margin: 8px 0 0; }
   .notice { margin: 0; padding: 10px 14px; border-radius: 12px; background: #fff6e6; color: #7a5a12; }
   .hidden-row { display: flex; align-items: center; gap: 10px; padding: 10px; margin: 8px 0; border: 1px solid #e4e8ee; border-radius: 12px; background: #f8fafc; }
   .hidden-row .grow { flex: 1; }
+  .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .toolbar input { flex: 1; min-width: 180px; }
+  .meta { margin: 0; color: #667385; font-size: 12px; line-height: 1.5; word-break: break-all; }
+  .status { color: #667385; font-size: 13px; font-weight: 400; }
   @media (max-width: 700px) { article { grid-template-columns: 1fr; } }
 </style>
 <header>
@@ -893,13 +1089,20 @@ const PAGE_TEMPLATE = `<!doctype html>
 <main>
   <p class="notice" id="notice" hidden></p>
   <section id="catalog"></section>
-  <section><h2>待处理</h2><div id="list"></div></section>
-  <section><h2>已隐藏</h2><div id="hidden"></div></section>
+  <section>
+    <h2>待处理 <span class="status" id="list-count"></span></h2>
+    <div class="toolbar"><input id="search" type="search" placeholder="搜索名称 / 备注 / 银行编号 / ID" /></div>
+    <div id="list"></div>
+    <div class="toolbar" id="list-more" hidden></div>
+  </section>
+  <section><h2>已隐藏 <span class="status" id="hidden-count"></span></h2><div id="hidden"></div></section>
 </main>
 <script nonce="__NONCE__">
 let token = "";
 let openCategory = "";
-let catalogData = { categories: [], items: [], hidden: [] };
+let query = "";
+let searchTimer = 0;
+const state = { pending: [], pendingTotal: 0, approved: [], approvedTotal: 0, hidden: [], hiddenTotal: 0, categories: [], counts: {}, banks: [], limit: 60, approvedLimit: 80 };
 const previews = [];
 
 function auth() { return token ? { Authorization: "Bearer " + token } : {}; }
@@ -939,13 +1142,12 @@ async function authed(path, options) {
   }
   return { ok: false, status: 401 };
 }
-function catalogSend(body) {
-  return post("/review/catalog", body).then((response) => {
-    if (response.ok) return load();
-    if (response.status === 429) notice("操作太频繁，请稍后再试。", "warn");
-    return null;
-  });
-}
+// 搜索：防抖 300ms 后交给服务端过滤（名称 / 备注 / 银行编号 / ID）
+document.querySelector("#search").addEventListener("input", function (event) {
+  query = String(event.target.value || "").trim();
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(function () { load(); }, 300);
+});
 function roleLabel(role) { return role === "bank" ? "银行" : role === "other" ? "其他（需要备注）" : "普通"; }
 function roleOptions(select, current) {
   [["plain", "普通"], ["bank", "银行"], ["other", "其他（需要备注）"]].forEach(function (entry) {
@@ -953,40 +1155,203 @@ function roleOptions(select, current) {
   });
   select.value = current || "plain";
 }
-function drawCatalog() {
-  const groups = catalogData.categories.map(function (entry) {
-    return { id: entry.id, name: entry.name, kind: entry.kind || "face", role: entry.role || "plain" };
+function kindLabel(kind) { return kind === "logo" ? "Logo" : "卡面"; }
+
+function statusLabel(status) {
+  if (status === "approved") return "已通过";
+  if (status === "hidden") return "已隐藏";
+  if (status === "rejected") return "已拒绝";
+  return "待审核";
+}
+
+function fmtSize(bytes) {
+  const n = Number(bytes) || 0;
+  if (!n) return "";
+  if (n < 1024) return n + " B";
+  if (n < 1024 * 1024) return (n / 1024).toFixed(0) + " KB";
+  return (n / 1024 / 1024).toFixed(1) + " MB";
+}
+
+function fmtTime(value) {
+  if (!value) return "";
+  const time = new Date(value);
+  if (Number.isNaN(time.getTime())) return "";
+  return time.toLocaleString("zh-CN", { hour12: false });
+}
+
+/** 需要鉴权才能读的预览图：fetch 成 blob 再显示，否则 <img> 带不了 Authorization。 */
+function loadPreview(img, id) {
+  fetch("/review/file/" + id, { headers: auth() }).then(function (response) {
+    if (!response.ok) return null;
+    return response.blob().then(function (blob) {
+      const url = URL.createObjectURL(blob);
+      previews.push(url);
+      img.src = url;
+      return null;
+    });
+  }).catch(function () {});
+}
+
+/** 统一提交：成功就整体重载，失败把服务端的错误码显示出来。 */
+function send(path, body) {
+  return post(path, body).then(function (response) {
+    if (response.ok) return load();
+    if (response.status === 429) { notice("操作太频繁，请稍后再试。", "warn"); return null; }
+    return response.json().catch(function () { return null; }).then(function (payload) {
+      const code = payload && payload.error ? payload.error : response.status;
+      notice("操作失败：" + code + "（" + path.replace("/review/", "") + "）", "warn");
+      return null;
+    });
   });
-  if (!groups.some(function (entry) { return entry.kind + ":" + entry.id === openCategory; })) {
-    openCategory = groups.length ? groups[0].kind + ":" + groups[0].id : "";
+}
+
+function targetCategory(select) {
+  return state.categories.find(function (entry) { return entry.id === select.value; }) || null;
+}
+
+/**
+ * 每个条目的详细编辑器：预览 + 元数据 + 名称/分类/银行/备注 + 按状态给出的动作。
+ * 待审：通过 / 拒绝并删除文件 / 彻底删除；已通过：保存修改 / 隐藏 / 彻底删除；已隐藏：保存修改 / 恢复 / 彻底删除。
+ */
+function itemEditor(item) {
+  const card = document.createElement("article");
+  const preview = document.createElement("img");
+  preview.alt = item.name;
+  loadPreview(preview, item.id);
+  const body = document.createElement("div");
+  const meta = document.createElement("p");
+  meta.className = "meta";
+  const bits = [];
+  if (item.created) bits.push("提交 " + fmtTime(item.created));
+  if (item.reviewedAt) bits.push("审核 " + fmtTime(item.reviewedAt));
+  if (item.width && item.height) bits.push(item.width + "×" + item.height);
+  const size = fmtSize(item.size);
+  if (size) bits.push(size);
+  if (item.type) bits.push(String(item.type).toUpperCase());
+  if (item.hash) bits.push("指纹 " + String(item.hash).slice(0, 10));
+  bits.push("状态 " + statusLabel(item.status));
+  meta.textContent = bits.join(" · ");
+  const nameRow = document.createElement("label");
+  const nameInput = Object.assign(document.createElement("input"), { type: "text", value: item.name || "", maxLength: 40 });
+  nameRow.append("名称", nameInput);
+  const catRow = document.createElement("label");
+  const catSelect = document.createElement("select");
+  state.categories.filter(function (entry) { return entry.kind === item.kind; }).forEach(function (entry) {
+    catSelect.append(Object.assign(document.createElement("option"), { value: entry.id, textContent: entry.name }));
+  });
+  if (item.category && !state.categories.some(function (entry) { return entry.id === item.category && entry.kind === item.kind; })) {
+    catSelect.append(Object.assign(document.createElement("option"), { value: item.category, textContent: item.category + "（分类已删除）" }));
   }
-  const current = groups.find(function (entry) { return entry.kind + ":" + entry.id === openCategory; });
+  catSelect.value = item.category || "";
+  catRow.append("分类", catSelect);
+  const bankRow = document.createElement("label");
+  const bankSelect = document.createElement("select");
+  bankSelect.append(Object.assign(document.createElement("option"), { value: "", textContent: "— 请选择 —" }));
+  state.banks.forEach(function (id) {
+    bankSelect.append(Object.assign(document.createElement("option"), { value: id, textContent: id }));
+  });
+  if (item.bank && state.banks.indexOf(item.bank) < 0) {
+    bankSelect.append(Object.assign(document.createElement("option"), { value: item.bank, textContent: item.bank + "（不在名单里）" }));
+  }
+  bankSelect.value = item.bank || "";
+  bankRow.append("银行编号", bankSelect);
+  const labelRow = document.createElement("label");
+  const labelInput = Object.assign(document.createElement("input"), { type: "text", value: item.label || "", maxLength: 24 });
+  labelRow.append("备注", labelInput);
+  function syncFields() {
+    const target = targetCategory(catSelect);
+    const role = target ? target.role : "plain";
+    bankRow.hidden = !(item.kind === "logo" && role === "bank");
+    labelRow.hidden = role !== "other";
+  }
+  catSelect.addEventListener("change", syncFields);
+  syncFields();
+  const row = document.createElement("div");
+  row.className = "row";
+  const primary = document.createElement("button");
+  primary.type = "button";
+  primary.className = "ok";
+  primary.textContent = item.status === "pending" ? "通过" : "保存修改";
+  primary.addEventListener("click", function () {
+    const payload = { id: item.id, name: nameInput.value, category: catSelect.value, bank: bankSelect.value, label: labelInput.value };
+    if (item.status === "pending") send("/review/items", Object.assign({ action: "approve" }, payload));
+    else send("/review/catalog", Object.assign({ action: "update-item" }, payload));
+  });
+  const secondary = document.createElement("button");
+  secondary.type = "button";
+  if (item.status === "hidden") secondary.className = "ok";
+  secondary.textContent = item.status === "pending" ? "拒绝并删除文件" : item.status === "hidden" ? "恢复" : "隐藏";
+  secondary.addEventListener("click", function () {
+    if (item.status === "pending") {
+      if (!confirm("拒绝并删除服务器上的文件？")) return;
+      send("/review/items", { action: "reject", id: item.id });
+      return;
+    }
+    if (item.status === "hidden") { send("/review/catalog", { action: "restore-item", id: item.id }); return; }
+    if (!confirm("隐藏「" + item.name + "」？隐藏后可以恢复，30 天后自动清理。")) return;
+    send("/review/catalog", { action: "hide-item", id: item.id });
+  });
+  const remove = document.createElement("button");
+  remove.type = "button";
+  remove.className = "no";
+  remove.textContent = "彻底删除";
+  remove.addEventListener("click", function () {
+    if (!confirm("彻底删除「" + item.name + "」？\n文件与记录都会被移除，无法恢复。")) return;
+    send("/review/catalog", { action: "delete-item", id: item.id, confirm: true });
+  });
+  row.append(primary, secondary, remove);
+  body.append(meta, nameRow, catRow, bankRow, labelRow, row);
+  card.append(preview, body);
+  return card;
+}
+
+function drawList(container, items, emptyText) {
+  container.replaceChildren();
+  if (!items.length) {
+    const empty = document.createElement("p");
+    empty.className = "muted empty";
+    empty.textContent = emptyText;
+    container.append(empty);
+    return;
+  }
+  items.forEach(function (item) { container.append(itemEditor(item)); });
+}
+
+function drawCatalog() {
   const box = document.querySelector("#catalog");
   box.replaceChildren();
   const title = document.createElement("h2");
   title.textContent = "分类";
   const note = document.createElement("p");
   note.className = "muted";
-  note.textContent = "点开一个分类后只显示里面的内容。角色决定提交表单要填什么（银行编号 / 备注）。";
+  note.textContent = "点开一个分类查看/编辑里面的内容。角色决定条目要填银行编号还是备注。";
   const cats = document.createElement("div");
   cats.className = "cats";
+  const groups = state.categories.map(function (entry) {
+    return { id: entry.id, name: entry.name, kind: entry.kind || "face", role: entry.role || "plain" };
+  });
+  if (!groups.some(function (entry) { return entry.kind + ":" + entry.id === openCategory; })) {
+    openCategory = groups.length ? groups[0].kind + ":" + groups[0].id : "";
+  }
+  const current = groups.find(function (entry) { return entry.kind + ":" + entry.id === openCategory; });
   groups.forEach(function (entry) {
+    const count = state.counts[entry.id] || 0;
     const row = document.createElement("div");
     row.className = "cat" + (entry === current ? " active" : "");
     const open = document.createElement("button");
     open.type = "button";
     open.className = "name";
-    open.textContent = (entry.kind === "face" ? "卡面 · " : "Logo · ") + entry.name;
-    open.addEventListener("click", function () { openCategory = entry.kind + ":" + entry.id; drawCatalog(); });
+    open.textContent = (entry.kind === "face" ? "卡面 · " : "Logo · ") + entry.name + (count ? "（" + count + "）" : "");
+    open.addEventListener("click", function () { openCategory = entry.kind + ":" + entry.id; load(); });
     const role = document.createElement("select");
     roleOptions(role, entry.role);
-    role.addEventListener("change", function () { catalogSend({ action: "set-role", id: entry.id, role: role.value }); });
+    role.addEventListener("change", function () { send("/review/catalog", { action: "set-role", id: entry.id, role: role.value }); });
     const rename = document.createElement("button");
     rename.type = "button";
     rename.textContent = "改名";
     rename.addEventListener("click", function () {
       const name = prompt("分类名称", entry.name);
-      if (name && name.trim() && name.trim() !== entry.name) catalogSend({ action: "rename-category", id: entry.id, name: name });
+      if (name && name.trim() && name.trim() !== entry.name) send("/review/catalog", { action: "rename-category", id: entry.id, name: name });
     });
     const same = groups.filter(function (item) { return item.kind === entry.kind; });
     const index = same.indexOf(entry);
@@ -994,12 +1359,12 @@ function drawCatalog() {
     up.type = "button";
     up.textContent = "上移";
     up.disabled = index === 0;
-    up.addEventListener("click", function () { catalogSend({ action: "move-category", id: entry.id, direction: "up" }); });
+    up.addEventListener("click", function () { send("/review/catalog", { action: "move-category", id: entry.id, direction: "up" }); });
     const down = document.createElement("button");
     down.type = "button";
     down.textContent = "下移";
     down.disabled = index === same.length - 1;
-    down.addEventListener("click", function () { catalogSend({ action: "move-category", id: entry.id, direction: "down" }); });
+    down.addEventListener("click", function () { send("/review/catalog", { action: "move-category", id: entry.id, direction: "down" }); });
     const remove = document.createElement("button");
     remove.type = "button";
     remove.className = "no";
@@ -1009,9 +1374,8 @@ function drawCatalog() {
       if (!first.ok) { notice("操作失败。", "warn"); return; }
       const info = await first.json();
       if (!info.needConfirm) { load(); return; }
-      const ok = confirm("将隐藏「" + entry.name + "」里的 " + info.affected.items + " 个条目。隐藏后可恢复，30 天后自动清理。继续？");
-      if (!ok) return;
-      catalogSend({ action: "remove-category", id: entry.id, confirm: true });
+      if (!confirm("将隐藏「" + entry.name + "」里的 " + info.affected.items + " 个条目。隐藏后可恢复，30 天后自动清理。继续？")) return;
+      send("/review/catalog", { action: "remove-category", id: entry.id, confirm: true });
     });
     row.append(open, role, rename, up, down, remove);
     cats.append(row);
@@ -1035,191 +1399,105 @@ function drawCatalog() {
   add.addEventListener("submit", function (event) {
     event.preventDefault();
     openCategory = kind.value + ":new";
-    catalogSend({ action: "add-category", name: input.value, kind: kind.value, role: addRole.value });
+    send("/review/catalog", { action: "add-category", name: input.value, kind: kind.value, role: addRole.value });
   });
   box.append(title, note, cats, add);
-  if (!current) return;
   const heading = document.createElement("h2");
-  heading.textContent = (current.kind === "face" ? "卡面 · " : "Logo · ") + current.name + "　角色：" + roleLabel(current.role);
+  heading.textContent = current
+    ? (current.kind === "face" ? "卡面 · " : "Logo · ") + current.name + "　角色：" + roleLabel(current.role) + "　共 " + state.approvedTotal + " 条"
+    : "分类还没建好";
   const cards = document.createElement("div");
   cards.className = "cards";
-  const visible = catalogData.items.filter(function (item) { return item.kind === current.kind && item.category === current.id; });
-  const choices = catalogData.categories.filter(function (entry) { return entry.kind === current.kind; });
-  visible.forEach(function (item) {
-    const card = document.createElement("article");
-    card.className = "card";
-    const preview = document.createElement("img");
-    preview.alt = item.name;
-    preview.src = "/files/" + item.id;
-    const body = document.createElement("div");
-    const name = document.createElement("input");
-    name.value = item.name;
-    name.maxLength = 40;
-    name.addEventListener("change", function () { catalogSend({ action: "rename-item", id: item.id, name: name.value }); });
-    const category = document.createElement("select");
-    choices.forEach(function (entry) {
-      category.append(Object.assign(document.createElement("option"), { value: entry.id, textContent: entry.name }));
-    });
-    category.value = current.id;
-    category.addEventListener("change", function () {
-      openCategory = current.kind + ":" + category.value;
-      catalogSend({ action: "move-face", id: item.id, category: category.value });
-    });
-    const remove = document.createElement("button");
-    remove.type = "button";
-    remove.className = "no";
-    remove.textContent = "隐藏";
-    remove.addEventListener("click", function () {
-      if (!confirm("隐藏「" + item.name + "」？隐藏后可以恢复，30 天后自动清理。")) return;
-      catalogSend({ action: "hide-item", id: item.id });
-    });
-    body.append(name, category, remove);
-    card.append(preview, body);
-    cards.append(card);
-  });
-  if (!visible.length) {
+  state.approved.forEach(function (item) { cards.append(itemEditor(item)); });
+  if (!state.approved.length) {
     const empty = document.createElement("p");
     empty.className = "muted empty";
-    empty.textContent = "这个分类里还没有内容。";
+    empty.textContent = current ? "这个分类里还没有内容。" : "";
     cards.append(empty);
   }
-  box.append(heading, cards);
+  const more = document.createElement("div");
+  more.className = "toolbar";
+  const remaining = state.approvedTotal - state.approved.length;
+  if (remaining > 0) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = "加载更多（还有 " + remaining + " 条）";
+    button.addEventListener("click", function () { state.approvedLimit = Math.min(200, state.approved.length + 80); load(); });
+    more.append(button);
+  }
+  box.append(heading, cards, more);
 }
+
 function drawHidden() {
   const box = document.querySelector("#hidden");
   box.replaceChildren();
-  const list = catalogData.hidden || [];
-  if (!list.length) {
+  if (!state.hidden.length) {
     const empty = document.createElement("p");
     empty.className = "muted empty";
     empty.textContent = "没有隐藏的内容。";
     box.append(empty);
     return;
   }
-  list.forEach(function (item) {
-    const row = document.createElement("div");
-    row.className = "hidden-row";
-    const name = document.createElement("span");
-    name.className = "grow";
-    name.textContent = (item.kind === "logo" ? "Logo · " : "卡面 · ") + item.name;
-    const restore = document.createElement("button");
-    restore.type = "button";
-    restore.className = "ok";
-    restore.textContent = "恢复";
-    restore.addEventListener("click", function () { catalogSend({ action: "restore-item", id: item.id }); });
-    row.append(name, restore);
-    box.append(row);
-  });
-}
-function drawItems(items) {
-  const list = document.querySelector("#list");
-  list.replaceChildren();
-  items.forEach(function (item) {
-    const card = document.createElement("article");
-    const preview = document.createElement("img");
-    preview.alt = item.name;
-    const body = document.createElement("div");
-    const name = document.createElement("label");
-    const nameInput = Object.assign(document.createElement("input"), { type: "text", value: item.name, maxLength: 40 });
-    name.append("名称", nameInput);
-    const category = document.createElement("label");
-    const categorySelect = document.createElement("select");
-    const options = catalogData.categories.filter(function (entry) { return (entry.kind || "face") === item.kind; });
-    if (!options.some(function (entry) { return entry.id === item.category; })) options.push({ id: item.category, name: item.category, role: "plain" });
-    options.forEach(function (entry) {
-      categorySelect.append(Object.assign(document.createElement("option"), { value: entry.id, textContent: entry.name }));
-    });
-    categorySelect.value = item.category;
-    category.append("分类", categorySelect);
-    const bank = document.createElement("label");
-    const bankInput = Object.assign(document.createElement("input"), { type: "text", value: item.bank || "" });
-    bank.append("银行编号", bankInput);
-    const custom = document.createElement("label");
-    const customInput = Object.assign(document.createElement("input"), { type: "text", value: item.label || "" });
-    custom.append("备注", customInput);
-    function selected() {
-      return catalogData.categories.find(function (entry) { return entry.id === categorySelect.value; });
-    }
-    function sync() {
-      const target = selected();
-      const role = target ? target.role : "plain";
-      bank.hidden = !(item.kind === "logo" && role === "bank");
-      custom.hidden = role !== "other";
-    }
-    categorySelect.addEventListener("change", sync);
-    sync();
-    const row = document.createElement("div");
-    row.className = "row";
-    const approve = document.createElement("button");
-    approve.type = "button";
-    approve.className = "ok";
-    approve.textContent = "通过";
-    const reject = document.createElement("button");
-    reject.type = "button";
-    reject.className = "no";
-    reject.textContent = "拒绝并删除文件";
-    const send = function (action) {
-      return post("/review/items", {
-        action: action,
-        id: item.id,
-        name: nameInput.value,
-        category: categorySelect.value,
-        bank: bankInput.value,
-        label: customInput.value,
-      }).then(function (response) {
-        if (response.ok) load();
-        else notice("提交失败：" + response.status, "warn");
-      });
-    };
-    approve.addEventListener("click", function () { send("approve"); });
-    reject.addEventListener("click", function () {
-      if (!confirm("拒绝并删除服务器上的文件？")) return;
-      send("reject");
-    });
-    row.append(approve, reject);
-    body.append(name, category, bank, custom, row);
-    card.append(preview, body);
-    list.append(card);
-    fetch("/review/file/" + item.id, { headers: auth() }).then(function (response) {
-      if (!response.ok) return;
-      return response.blob().then(function (blob) {
-        const url = URL.createObjectURL(blob);
-        previews.push(url);
-        preview.src = url;
-      });
-    }).catch(function () {});
-  });
-  if (!items.length) {
-    const empty = document.createElement("p");
-    empty.className = "muted empty";
-    empty.textContent = "没有待处理的图片。";
-    list.append(empty);
+  state.hidden.forEach(function (item) { box.append(itemEditor(item)); });
+  const remaining = state.hiddenTotal - state.hidden.length;
+  if (remaining > 0) {
+    const note = document.createElement("p");
+    note.className = "muted empty";
+    note.textContent = "还有 " + remaining + " 条已隐藏内容（在上方待处理列表下方点「加载更多」或搜索）";
+    box.append(note);
   }
 }
+
 async function load() {
   previews.forEach(function (url) { URL.revokeObjectURL(url); });
   previews.length = 0;
-  let state = null;
-  try { state = await (await fetch("/review/password")).json(); } catch (error) { state = null; }
-  if (!state || !state.ready) {
-    message("审核口令未配置。请先执行：npx wrangler secret put REVIEW_PASSWORD，然后重新部署。");
+  let info = null;
+  try { info = await (await fetch("/review/password")).json(); } catch (error) { info = null; }
+  if (!info || !info.ready) {
+    message("审核口令未配置。请先在 Worker 的「设置 → 变量和密钥」里加 REVIEW_PASSWORD，然后重新部署。");
     return;
   }
-  if (state.legacy) notice("检测到旧版明文口令文件（review-password.txt），已忽略；建议在 R2 里删除它，口令以 REVIEW_PASSWORD 为准。", "warn");
+  if (info.legacy) notice("检测到旧版明文口令文件（review-password.txt），已忽略；建议在 R2 里删除它，口令以 REVIEW_PASSWORD 为准。", "warn");
   else notice("");
-  const itemsResponse = await authed("/review/items");
-  if (!itemsResponse.ok) {
-    if (itemsResponse.status === 401) message("口令不正确。刷新页面重新输入。");
-    else if (itemsResponse.status === 429) message("尝试次数过多，请稍后再试。");
+  const pendingResponse = await authed("/review/items?limit=" + state.limit + "&q=" + encodeURIComponent(query));
+  if (!pendingResponse.ok) {
+    if (pendingResponse.status === 401) message("口令不正确。刷新页面重新输入。");
+    else if (pendingResponse.status === 429) message("尝试次数过多，请稍后再试。");
     else message("审核列表加载失败。");
     return;
   }
-  const data = await itemsResponse.json();
-  const catalogResponse = await authed("/review/catalog");
-  if (catalogResponse.ok) catalogData = await catalogResponse.json();
+  const pendingPayload = await pendingResponse.json();
+  state.pending = pendingPayload.items || [];
+  state.pendingTotal = pendingPayload.total || 0;
+  state.banks = pendingPayload.banks || [];
+  const parts = (openCategory || "face:").split(":");
+  const catalogResponse = await authed("/review/catalog?kind=" + encodeURIComponent(parts[0]) + "&category=" + encodeURIComponent(parts[1] || "") + "&limit=" + state.approvedLimit + "&q=" + encodeURIComponent(query));
+  if (catalogResponse.ok) {
+    const payload = await catalogResponse.json();
+    state.categories = payload.categories || [];
+    state.counts = payload.counts || {};
+    state.approved = payload.items || [];
+    state.approvedTotal = payload.total || 0;
+    state.hidden = payload.hidden || [];
+    state.hiddenTotal = payload.hiddenTotal || 0;
+    if (payload.banks && payload.banks.length) state.banks = payload.banks;
+  }
   drawCatalog();
-  drawItems(data.items);
+  drawList(document.querySelector("#list"), state.pending, query ? "没有匹配的待处理条目。" : "没有待处理的图片。");
+  document.querySelector("#list-count").textContent = state.pendingTotal ? "共 " + state.pendingTotal + " 条" : "";
   drawHidden();
+  document.querySelector("#hidden-count").textContent = state.hiddenTotal ? "共 " + state.hiddenTotal + " 条" : "";
+  const moreBox = document.querySelector("#list-more");
+  moreBox.replaceChildren();
+  const remaining = state.pendingTotal - state.pending.length;
+  moreBox.hidden = remaining <= 0;
+  if (remaining > 0) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = "加载更多待处理（还有 " + remaining + " 条）";
+    button.addEventListener("click", function () { state.limit = Math.min(200, state.pending.length + 60); load(); });
+    moreBox.append(button);
+  }
 }
 document.querySelector("#change-password").addEventListener("click", async function () {
   const next = (prompt("新审核密码（至少 12 位）") || "").trim();

@@ -33,7 +33,7 @@ class FakeBucket {
         ? value.slice()
         : new Uint8Array(await new Response(value).arrayBuffer());
     this.seq += 1;
-    const stored = { key, bytes, etag: `etag-${this.seq}`, httpMetadata: options.httpMetadata || {} };
+    const stored = { key, bytes, etag: `etag-${this.seq}`, httpMetadata: options.httpMetadata || {}, uploaded: new Date() };
     this.objects.set(key, stored);
     return { ...stored };
   }
@@ -54,6 +54,23 @@ class FakeBucket {
   async delete(key) {
     await this.#settle();
     this.objects.delete(key);
+  }
+
+  async list(options = {}) {
+    await this.#settle();
+    const prefix = String(options.prefix || "");
+    const limit = Number(options.limit) || 1000;
+    const objects = [...this.objects.entries()]
+      .filter(([key]) => key.startsWith(prefix))
+      .slice(0, limit)
+      .map(([key, object]) => ({ key, uploaded: object.uploaded, size: object.bytes.length, etag: object.etag }));
+    return { objects, truncated: objects.length >= limit };
+  }
+
+  /** 测试用：把某个对象的上传时间改到过去，模拟陈旧文件。 */
+  backdate(key, when) {
+    const object = this.objects.get(key);
+    if (object) object.uploaded = when;
   }
 
   keys() {
@@ -79,8 +96,8 @@ function makeEnv(overrides = {}) {
   return { BUCKET: new FakeBucket(), REVIEW_PASSWORD: PASSWORD, ...overrides };
 }
 
-function req(path, { method = "GET", token, ip = "10.0.0.1", payload, form } = {}) {
-  const headers = { "CF-Connecting-IP": ip };
+function req(path, { method = "GET", token, ip = "10.0.0.1", payload, form, headers: extra } = {}) {
+  const headers = Object.assign({ "CF-Connecting-IP": ip }, extra || {});
   if (token) headers.Authorization = `Bearer ${token}`;
   let body;
   if (form) {
@@ -183,7 +200,7 @@ test("normalizeCatalog 就地归一化并继承旧数据角色", () => {
   assert.equal(data.categories[0].role, "bank");
   assert.equal(data.categories[1].role, "other");
   assert.equal(data.categories[1].kind, "face");
-  assert.deepEqual(data.hidden, []);
+  assert.equal("hidden" in data, false, "旧版 hidden 数组应被迁移掉：可见性只看 status");
 });
 
 /* ------------------------------------------------------------ 口令与鉴权 */
@@ -266,7 +283,7 @@ test("提交合法 PNG 会入库为 pending 并可被审核通过", async () => 
   assert.equal(file.status, 200);
   assert.equal(file.headers.get("X-Content-Type-Options"), "nosniff");
   assert.match(file.headers.get("Content-Security-Policy"), /sandbox/);
-  assert.equal(file.headers.get("Cache-Control"), "public, max-age=86400");
+  assert.equal(file.headers.get("Cache-Control"), "public, max-age=86400, stale-while-revalidate=604800");
 });
 
 test("伪装成 PNG 的 HTML、含脚本的 SVG、超大像素图都被拒绝", async () => {
@@ -491,4 +508,141 @@ test("JPEG 段长度非法时按不可信拒绝，避免绕过像素上限", asy
   const response = await call(env, "/submit", { method: "POST", ip: "10.10.0.1", form: submitForm({ ip: "10.10.0.1", file: fileOf(bad, "bomb.jpg", "image/jpeg") }).form });
   assert.equal(response.status, 400);
   assert.equal((await response.json()).error, "size");
+});
+
+/* ------------------------------------------------- 后台详细编辑与运维能力 */
+
+async function submitRaw(env, { name = "条目", kind = "face", category = "solid", bank = "", label = "", ip = "11.0.0.1", width = 800, height = 500 } = {}) {
+  const bytes = pngBytes(width, height);
+  const file = fileOf(bytes, `${name}.png`, "image/png");
+  const form = submitForm({ name, kind, category, bank, label, ip, file });
+  const response = await call(env, "/submit", { method: "POST", ip, form: form.form });
+  const list = await (await call(env, "/review/items", { token: PASSWORD, ip })).json();
+  return { response, item: list.items.find((entry) => entry.name === name) };
+}
+
+test("提交时记录尺寸/大小/指纹，通过后写入审核时间，初始宽度按高宽比换算", async () => {
+  const env = makeEnv();
+  const { item } = await submitRaw(env, { name: "元数据卡面", ip: "11.0.0.1", width: 800, height: 500 });
+  assert.equal(item.width, 800);
+  assert.equal(item.height, 500);
+  assert.equal(item.size > 0, true);
+  assert.match(item.hash, /^[0-9a-f]{64}$/);
+  assert.equal(item.reviewedAt, "");
+  assert.equal(item.status, "pending");
+  const approved = await call(env, "/review/items", { method: "POST", token: PASSWORD, ip: "11.0.0.1", payload: { action: "approve", id: item.id, category: "solid" } });
+  assert.equal(approved.status, 200);
+  const catalog = await (await call(env, "/review/catalog?kind=face&category=solid", { token: PASSWORD, ip: "11.0.0.1" })).json();
+  const stored = catalog.items.find((entry) => entry.id === item.id);
+  assert.match(stored.reviewedAt, /^\d{4}-/);
+  const manifest = await (await call(env, "/manifest")).json();
+  assert.equal(manifest.items[0].width, 64, "800×500 按高度 40px 换算宽度应为 64");
+});
+
+test("后台可详细修改名称/分类/银行/备注，且拒绝不在名单里的银行编号", async () => {
+  const env = makeEnv();
+  const ip = "11.1.0.1";
+  const { item } = await submitRaw(env, { name: "工行 logo", kind: "logo", category: "banks", bank: "ICBC", ip, width: 400, height: 160 });
+  await call(env, "/review/items", { method: "POST", token: PASSWORD, ip, payload: { action: "approve", id: item.id, category: "banks", bank: "ICBC" } });
+  const updated = await call(env, "/review/catalog", { method: "POST", token: PASSWORD, ip, payload: { action: "update-item", id: item.id, name: "工商银行", category: "official", label: "备用" } });
+  assert.equal(updated.status, 200);
+  const catalog = await (await call(env, "/review/catalog?kind=logo&category=official", { token: PASSWORD, ip })).json();
+  const stored = catalog.items.find((entry) => entry.id === item.id);
+  assert.equal(stored.name, "工商银行");
+  assert.equal(stored.category, "official");
+  assert.equal(stored.bank, "", "改到非银行分类应清空银行编号");
+  const badBank = await call(env, "/review/catalog", { method: "POST", token: PASSWORD, ip, payload: { action: "update-item", id: item.id, category: "banks", bank: "ICBX" } });
+  assert.equal(badBank.status, 400);
+  assert.equal((await badBank.json()).error, "bank");
+  const okBank = await call(env, "/review/catalog", { method: "POST", token: PASSWORD, ip, payload: { action: "update-item", id: item.id, category: "banks", bank: "ICBC" } });
+  assert.equal(okBank.status, 200);
+  const after = await (await call(env, "/review/catalog?kind=logo&category=banks", { token: PASSWORD, ip })).json();
+  assert.equal(after.items.find((entry) => entry.id === item.id).bank, "ICBC");
+});
+
+test("历史上已存在的银行编号（不在名单里）仍可继续编辑", async () => {
+  const env = makeEnv();
+  const ip = "11.2.0.1";
+  const { item } = await submitRaw(env, { name: "旧编号 logo", kind: "logo", category: "banks", bank: "ICBC", ip });
+  await call(env, "/review/items", { method: "POST", token: PASSWORD, ip, payload: { action: "approve", id: item.id, category: "banks", bank: "ICBC" } });
+  const raw = env.BUCKET.objects.get("records.json");
+  const data = JSON.parse(new TextDecoder().decode(raw.bytes));
+  data.find((entry) => entry.id === item.id).bank = "LEGACY";
+  await env.BUCKET.put("records.json", JSON.stringify(data), {});
+  const response = await call(env, "/review/catalog", { method: "POST", token: PASSWORD, ip, payload: { action: "update-item", id: item.id, category: "banks", bank: "LEGACY" } });
+  assert.equal(response.status, 200);
+});
+
+test("提交时银行编号必须在名单里（格式合法但不存在也会被拒）", async () => {
+  const env = makeEnv();
+  const form = submitForm({ name: "假银行", kind: "logo", category: "banks", bank: "ICBX", ip: "11.3.0.1", file: fileOf(pngBytes(200, 120), "x.png", "image/png") });
+  const response = await call(env, "/submit", { method: "POST", ip: "11.3.0.1", form: form.form });
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error, "bank");
+});
+
+test("彻底删除：文件与记录一起移除，清单同步", async () => {
+  const env = makeEnv();
+  const ip = "11.4.0.1";
+  const { item } = await submitRaw(env, { name: "待删除", ip });
+  await call(env, "/review/items", { method: "POST", token: PASSWORD, ip, payload: { action: "approve", id: item.id, category: "solid" } });
+  assert.equal((await call(env, `/files/${item.id}`)).status, 200);
+  const noConfirm = await call(env, "/review/catalog", { method: "POST", token: PASSWORD, ip, payload: { action: "delete-item", id: item.id } });
+  assert.equal(noConfirm.status, 400, "没有 confirm 不应删除");
+  const done = await call(env, "/review/catalog", { method: "POST", token: PASSWORD, ip, payload: { action: "delete-item", id: item.id, confirm: true } });
+  assert.equal(done.status, 200);
+  assert.equal(env.BUCKET.keys().some((key) => key.includes(item.id)), false, "对象应被删除");
+  assert.equal((await call(env, `/files/${item.id}`)).status, 404);
+  const manifest = await (await call(env, "/manifest")).json();
+  assert.equal(manifest.items.some((entry) => entry.id === item.id), false);
+  const catalog = await (await call(env, "/review/catalog?kind=face&category=solid", { token: PASSWORD, ip })).json();
+  assert.equal(catalog.items.some((entry) => entry.id === item.id), false);
+});
+
+test("待处理列表支持分页、搜索，并附带银行白名单与元数据", async () => {
+  const env = makeEnv();
+  const ip = "11.5.0.1";
+  for (const name of ["甲卡", "乙卡", "丙卡"]) await submitRaw(env, { name, ip });
+  const first = await (await call(env, "/review/items?limit=2", { token: PASSWORD, ip })).json();
+  assert.equal(first.items.length, 2);
+  assert.equal(first.total, 3);
+  const second = await (await call(env, "/review/items?limit=2&offset=2", { token: PASSWORD, ip })).json();
+  assert.equal(second.items.length, 1);
+  const searched = await (await call(env, `/review/items?q=${encodeURIComponent("乙")}`, { token: PASSWORD, ip })).json();
+  assert.equal(searched.total, 1);
+  assert.equal(searched.items[0].name, "乙卡");
+  assert.equal(searched.items[0].size > 0, true);
+  assert.equal(first.banks.length > 100, true, "应返回银行白名单供下拉使用");
+});
+
+test("已通过文件与派生清单带 ETag，可 304 复用", async () => {
+  const env = makeEnv();
+  const ip = "11.6.0.1";
+  const { item } = await submitRaw(env, { name: "缓存卡面", ip });
+  await call(env, "/review/items", { method: "POST", token: PASSWORD, ip, payload: { action: "approve", id: item.id, category: "solid" } });
+  const file = await call(env, `/files/${item.id}`);
+  const etag = file.headers.get("ETag");
+  assert.equal(Boolean(etag), true);
+  const revalidated = await call(env, `/files/${item.id}`, { headers: { "If-None-Match": etag } });
+  assert.equal(revalidated.status, 304);
+  assert.equal(env.BUCKET.keys().includes("manifest.json"), true, "派生清单应写入 R2");
+  const manifest = await call(env, "/manifest");
+  const manifestEtag = manifest.headers.get("ETag");
+  assert.equal(Boolean(manifestEtag), true);
+  const cached = await call(env, "/manifest", { headers: { "If-None-Match": manifestEtag } });
+  assert.equal(cached.status, 304);
+});
+
+test("例行维护：清扫无记录的孤儿文件，并每天备份一次 records.json", async () => {
+  const env = makeEnv();
+  const ip = "11.7.0.1";
+  await submitRaw(env, { name: "备份前提交", ip });
+  await env.BUCKET.put("pending/orphan.png", new Uint8Array([1, 2, 3]), {});
+  env.BUCKET.backdate("pending/orphan.png", new Date(Date.now() - 3 * DAY_MS));
+  await env.BUCKET.put("pending/fresh.png", new Uint8Array([4]), {});
+  await call(env, "/review/items", { token: PASSWORD, ip });
+  assert.equal(env.BUCKET.keys().includes("pending/orphan.png"), false, "超过 1 天的孤儿应被清理");
+  assert.equal(env.BUCKET.keys().includes("pending/fresh.png"), true, "新孤儿先留着");
+  const stamp = new Date().toISOString().slice(0, 10);
+  assert.equal(env.BUCKET.keys().includes(`backups/records-${stamp}.json`), true, "应留下当天备份");
 });

@@ -5,5 +5,6 @@
   "r2_buckets": [
     { "binding": "BUCKET", "bucket_name": "card-face-intake" }
   ],
-  "keep_vars": true
+  "keep_vars": true,
+  "workers_dev": false
 }
