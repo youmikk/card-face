@@ -280,8 +280,8 @@ const PAGE = `<!doctype html>
      sessionStorage.setItem("review-token", token);
    }
    token = sessionStorage.getItem("review-token") || "";
-   let response = token ? await fetch("/review/items", { headers: auth() }) : { ok: false };
-   while (!response.ok) {
+   let response = token ? await fetch("/review/items", { headers: auth() }) : { ok: false, status: 401 };
+   while (response.status === 401) {
      sessionStorage.removeItem("review-token");
      token = (prompt("审核密码") || "").trim();
      if (!token) {
@@ -290,11 +290,10 @@ const PAGE = `<!doctype html>
      }
      sessionStorage.setItem("review-token", token);
      response = await fetch("/review/items", { headers: auth() });
-     if (response.status !== 401) {
-       document.querySelector("#list").textContent = "审核服务出错，请稍后再试";
-       return;
-     }
-     document.querySelector("#list").textContent = "密码不对";
+   }
+   if (!response.ok) {
+     document.querySelector("#list").textContent = "审核列表加载失败";
+     return;
    }
   const data = await response.json();
   const list = document.querySelector("#list");
