@@ -1569,6 +1569,9 @@ document.querySelector("#submit-file").addEventListener("change", () => {
   body.set("bank", document.querySelector("#submit-bank").value.trim());
    body.set("label", document.querySelector("#submit-custom").value.trim());
    body.set("file", file);
+  // 顺手生成一张小缩略图一起提交：审核台列表只加载它，后台看图快很多（失败就跳过，不影响提交）
+  const thumb = await makeThumbnail(file);
+  if (thumb) body.set("thumb", thumb, "thumb." + (thumb.type === "image/webp" ? "webp" : "png"));
   const send = document.querySelector("#submit-send");
   send.disabled = true;
   send.textContent = text.submitSubmitting;
@@ -1594,4 +1597,29 @@ document.querySelector("#submit-file").addEventListener("change", () => {
     applyLanguage();
   }
  });
+/** 把图片缩到最长边 512px 生成缩略图（SVG 不处理；任何失败都返回 null，提交照旧）。 */
+async function makeThumbnail(file) {
+  if (!file || !/^image\//.test(file.type) || file.type === "image/svg+xml" || /\.svg$/i.test(file.name)) return null;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const max = 512;
+    const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    if (!context) return null;
+    context.drawImage(bitmap, 0, 0, width, height);
+    if (bitmap.close) bitmap.close();
+    const encode = (type) => new Promise((resolve) => canvas.toBlob((result) => resolve(result), type, 0.72));
+    let blob = await encode("image/webp");
+    if (!blob || blob.type !== "image/webp") blob = await encode("image/png");
+    if (!blob || blob.size === 0 || blob.size > 256 * 1024) return null;
+    return blob;
+  } catch {
+    return null;
+  }
+}
  loadApproved();

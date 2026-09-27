@@ -93,7 +93,7 @@ function body(object) {
 const PASSWORD = "correct-horse-battery";
 
 function makeEnv(overrides = {}) {
-  return { BUCKET: new FakeBucket(), REVIEW_PASSWORD: PASSWORD, ...overrides };
+  return { BUCKET: new FakeBucket(), REVIEW_PASSWORD: PASSWORD, HOUSEKEEP_INTERVAL_MS: "0", ...overrides };
 }
 
 function req(path, { method = "GET", token, ip = "10.0.0.1", payload, form, headers: extra } = {}) {
@@ -789,7 +789,8 @@ test("审核页面的内联脚本必须能被浏览器解析（模板转义不�
     // 直接把字符串字面量拆断、整段脚本解析失败（后台会变成一片空白）。
     assert.doesNotThrow(() => new Function(code), `内联脚本 #${index} 不应有语法错误`);
   });
-  assert.equal(html.includes("彻底删除「"), true, "确认对话框文案仍在");
+  assert.equal(html.includes("__NONCE__"), false, "nonce 占位应被替换成真实值");
+  assert.equal(html.includes("卡面") && html.includes("Logo"), true, "页面应有卡面 / Logo 两个分区");
 });
 
 test("审核页面脚本不要给只读 DOM 属性赋值（例如 input.list，会直接抛错让整页空白）", async () => {
@@ -933,4 +934,41 @@ test("同图识别与批量处理：approve-dupes / reject-dupes / merge-dupes",
   const after = await (await call(env, "/review/items", { token: PASSWORD, ip })).json();
   assert.equal(after.items.some((row) => row.id === g.id), false, "重复的那条连文件一起没了");
   assert.equal(after.items.some((row) => row.id === f.id), true, "保留的那条还在");
+});
+
+test("缩略图：提交时存、通过时迁移、彻底删除时清掉；/review/file 快路径直接按 id+类型取", async () => {
+  const env = makeEnv();
+  const ip = "20.0.0.1";
+  const form = submitForm({
+    name: "带缩略图",
+    kind: "face",
+    category: "solid",
+    ip,
+    file: fileOf(pngBytes(800, 500), "big.png", "image/png"),
+  });
+  form.form.set("thumb", fileOf(pngBytes(200, 125), "small.png", "image/png"));
+  const submitted = await call(env, "/submit", { method: "POST", ip, form: form.form });
+  assert.equal(submitted.status, 200);
+  const item = (await (await call(env, "/review/items", { token: PASSWORD, ip })).json()).items[0];
+  assert.equal(env.BUCKET.keys().includes(`pending/${item.id}.thumb`), true, "缩略图应落盘");
+  assert.equal(item.thumbUrl.includes("t=png"), true, "列表要给出可直接取图的 thumbUrl");
+  assert.equal(item.thumbUrl.includes("thumb=1"), true);
+
+  // 快路径（不解析 records）：原图 / 缩略图都能取到，并且带上正确的内容类型
+  const full = await call(env, `/review/file/${item.id}?t=png&d=pending`, { token: PASSWORD, ip });
+  assert.equal(full.status, 200);
+  assert.equal(full.headers.get("Content-Type"), "image/png");
+  const small = await call(env, `/review/file/${item.id}?t=png&d=pending&thumb=1`, { token: PASSWORD, ip });
+  assert.equal(small.status, 200);
+  assert.equal(small.headers.get("Cache-Control"), "private, max-age=300, stale-while-revalidate=600");
+
+  // 通过后缩略图跟着搬到 approved/
+  await call(env, "/review/items", { method: "POST", token: PASSWORD, ip, payload: { action: "approve", id: item.id, category: "solid" } });
+  assert.equal(env.BUCKET.keys().includes(`pending/${item.id}.thumb`), false, "pending 下的缩略图应搬走");
+  assert.equal(env.BUCKET.keys().includes(`approved/${item.id}.thumb`), true);
+  assert.equal((await call(env, `/review/file/${item.id}?t=png&thumb=1`, { token: PASSWORD, ip })).status, 200);
+
+  // 彻底删除后原图与缩略图都不在
+  await call(env, "/review/catalog", { method: "POST", token: PASSWORD, ip, payload: { action: "delete-item", id: item.id, confirm: true } });
+  assert.equal(env.BUCKET.keys().some((key) => key.includes(item.id)), false, "原图与缩略图都要清掉");
 });
