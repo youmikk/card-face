@@ -724,7 +724,7 @@ function logoButton(mark, name) {
   const image = document.createElement("img");
   const src = safeSrc(mark.src);
   if (src) image.src = src;
-  image.alt = "";
+  image.alt = mark.name;
   image.loading = "lazy";
   const label = document.createElement("span");
   label.textContent = mark.name;

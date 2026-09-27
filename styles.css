@@ -53,6 +53,7 @@ button { cursor: pointer; }
 }
 body { padding-top: 72px; }
 .brand { display: flex; align-items: center; gap: 12px; }
+.brand h1 { margin: 0; font: inherit; }
 .brand strong, .brand small { display: block; }
 .brand small { color: var(--muted); margin-top: 2px; }
 .mark { width: 42px; height: 28px; display: block; flex: 0 0 auto; }
