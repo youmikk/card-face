@@ -204,6 +204,7 @@ export const PAGE_TEMPLATE = `<!doctype html>
   .card {
     /* 缩略图在左（固定小格）、文字在右：图片再大也不会把名称/元数据/字段挤出视野 */
     display: grid; grid-template-columns: 156px minmax(0, 1fr); align-items: stretch;
+    grid-template-areas: "frame body" "actions actions";
     border: 1px solid var(--line); border-radius: var(--r-3); background: var(--panel);
     box-shadow: var(--shadow-1); overflow: hidden;
     transition: border-color var(--fast), box-shadow var(--fast);
@@ -214,7 +215,7 @@ export const PAGE_TEMPLATE = `<!doctype html>
   .card[data-status="hidden"] .frame img { filter: saturate(.45); }
   .frame {
     /* 固定高度 + 裁剪：图片只用 max-* 约束，绝不会按原始尺寸溢出遮挡名称/按钮 */
-    position: relative; height: 168px; overflow: hidden;
+    position: relative; height: 168px; overflow: hidden; grid-area: frame;
     display: grid; place-items: center; padding: 6px;
     background: #f1f4f9; border-right: 1px solid var(--line);
   }
@@ -225,19 +226,15 @@ export const PAGE_TEMPLATE = `<!doctype html>
   .frame[data-state="missing"] img { display: none; }
   .ph { display: none; align-items: center; gap: 6px; padding: 6px 12px; border: 1px dashed var(--line-2); border-radius: var(--r-2); color: var(--ink-3); font-size: 12px; }
   .frame[data-state="missing"] .ph-missing { display: inline-flex; }
-  .chips { position: absolute; left: 8px; top: 8px; display: flex; gap: 6px; }
-  .chip {
   .chips { position: absolute; left: 6px; top: 6px; right: 6px; display: flex; gap: 4px; flex-wrap: wrap; }
+  .chip {
     border-radius: 999px; font-size: 12px; font-weight: 600;
     background: rgba(255, 255, 255, .93); color: var(--ink-2); box-shadow: inset 0 0 0 1px var(--line);
   }
   .chip.pending { color: var(--warn); box-shadow: inset 0 0 0 1px var(--warn-line); }
-  .card-body { padding: 12px; display: grid; gap: 10px; min-width: 0; }
+  .card-body { grid-area: body; padding: 12px 12px 6px; display: grid; gap: 10px; min-width: 0; }
   .card-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; min-width: 0; }
 
-  .card-body { padding: 12px; display: grid; gap: 10px; }
-  .card-head { display: flex; align-items: baseline; gap: 8px; }
-  .card-title { flex: 1; min-width: 0; overflow-wrap: anywhere; }
   .card-id { font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--ink-3); flex: none; }
 
   .meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(126px, 100%), 1fr)); gap: 3px 10px; font-size: 12px; }
@@ -266,8 +263,10 @@ export const PAGE_TEMPLATE = `<!doctype html>
   .dupe-list li span:first-child { overflow-wrap: anywhere; }
   .dupes-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 
-  .actions { display: flex; flex-wrap: wrap; gap: 8px; }
-  .actions .push { margin-left: auto; }
+  /* 动作按钮始终挨在一起：不把「彻底删除」单独推到最右（卡片改成左缩略图后正文变窄，会被挤到下一行） */
+  /* 动作行横跨整卡：按钮不会被缩窄的正文列挤到下一行 */
+  .actions { grid-area: actions; padding: 0 12px 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .actions .push { margin-left: 0; }
 
   /* ---------------------------------------------------------------- 按钮 */
   .btn {
@@ -378,7 +377,7 @@ export const PAGE_TEMPLATE = `<!doctype html>
     .topline { gap: 10px; }
     .search { flex: 1; min-width: 170px; }
     .search input { width: 100%; }
-    .card { grid-template-columns: 1fr; }
+    .card { grid-template-columns: 1fr; grid-template-areas: "frame" "body" "actions"; }
     .grid { grid-template-columns: 1fr; }
     .frame { height: 140px; min-height: 0; max-height: none; border-right: 0; border-bottom: 1px solid var(--line); }
     .card-body { padding: 10px; }
@@ -915,8 +914,9 @@ export const PAGE_TEMPLATE = `<!doctype html>
     html += metaHtml(item);
     html += fieldsHtml(item);
     html += dupesHtml(item);
+    html += '</div>';
     html += actionsHtml(item);
-    html += '</div></article>';
+    html += '</article>';
     return html;
   }
   function gridHtml(items) {
