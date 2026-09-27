@@ -213,12 +213,12 @@ export const PAGE_TEMPLATE = `<!doctype html>
   .card[data-status="hidden"] { border-style: dashed; background: #fbfcfe; }
   .card[data-status="hidden"] .frame img { filter: saturate(.45); }
   .frame {
-    position: relative; display: grid; place-items: center; padding: 6px;
-    min-height: 116px; max-height: 168px;
+    /* 固定高度 + 裁剪：图片只用 max-* 约束，绝不会按原始尺寸溢出遮挡名称/按钮 */
+    position: relative; height: 168px; overflow: hidden;
+    display: grid; place-items: center; padding: 6px;
     background: #f1f4f9; border-right: 1px solid var(--line);
   }
-  }
-  .frame img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: center; }
+  .frame img { display: block; width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; object-position: center; }
   .frame[data-state="loading"] { animation: pulse 1.5s ease-in-out infinite; }
   @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .6; } }
   .frame[data-state="missing"] { background: #fbfaf7; }
@@ -380,7 +380,7 @@ export const PAGE_TEMPLATE = `<!doctype html>
     .search input { width: 100%; }
     .card { grid-template-columns: 1fr; }
     .grid { grid-template-columns: 1fr; }
-    .frame { border-right: 0; border-bottom: 1px solid var(--line); min-height: 118px; max-height: 150px; }
+    .frame { height: 140px; min-height: 0; max-height: none; border-right: 0; border-bottom: 1px solid var(--line); }
     .card-body { padding: 10px; }
     .actions { gap: 6px; }
     .actions .push { margin-left: 0; }
