@@ -76,13 +76,26 @@ const USAGE_KEY = "usage.json"; // 用量统计缓存（避免每次打开后台
 export default {
   async fetch(request, env) {
     try {
-      return await route(request, env);
+      return noIndex(new URL(request.url).pathname, await route(request, env));
     } catch (error) {
       console.error("intake error", error && error.stack ? error.stack : error);
       return json({ error: "server" }, 500);
     }
   },
 };
+
+// 审核台整站不进搜索索引：除公开素材 /files/* 外，所有响应统一带 noindex。
+// 页面壳（/review）本来就有，这里补齐 404 之类的兜底响应，避免将来新增路由漏掉。
+function noIndex(pathname, response) {
+  if (pathname.startsWith("/files/") || response.headers.has("X-Robots-Tag")) return response;
+  const headers = new Headers(response.headers);
+  headers.set("X-Robots-Tag", "noindex, nofollow");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
 
 async function route(request, env) {
   const url = new URL(request.url);

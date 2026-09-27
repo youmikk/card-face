@@ -989,3 +989,27 @@ test("R2 用量接口：需要口令，统计对象数与字节并按前缀分�
   const forced = await (await call(env, "/review/usage?refresh=1", { token: PASSWORD, ip })).json();
   assert.equal(forced.cached, false, "refresh=1 强制重算");
 });
+
+test("审核台不进搜索索引：兜底 404 与接口都带 noindex，公开素材 /files/* 不带", async () => {
+  const env = makeEnv();
+  const ip = "10.9.0.1";
+  const pending = submitForm({ ip, file: fileOf(pngBytes(1536, 969), "card.png", "image/png") });
+  await call(env, "/submit", { method: "POST", form: pending.form, ip });
+  const list = await (await call(env, "/review/items", { token: PASSWORD, ip })).json();
+  const id = list.items[0].id;
+  await call(env, "/review/items", { method: "POST", token: PASSWORD, ip, payload: { action: "approve", id, category: "solid" } });
+
+  const missing = await call(env, "/whatever");
+  assert.equal(missing.status, 404);
+  assert.equal(missing.headers.get("X-Robots-Tag"), "noindex, nofollow", "兜底 404 也要带 noindex");
+  assert.equal((await call(env, "/review")).headers.get("X-Robots-Tag"), "noindex, nofollow");
+  assert.equal((await call(env, "/manifest")).headers.get("X-Robots-Tag"), "noindex, nofollow");
+
+  const file = await call(env, `/files/${id}`);
+  assert.equal(file.status, 200);
+  assert.equal(file.headers.has("X-Robots-Tag"), false, "公开素材保持可收录");
+
+  const robots = await call(env, "/robots.txt");
+  assert.equal(robots.status, 200);
+  assert.match(await robots.text(), /Disallow: \//);
+});
