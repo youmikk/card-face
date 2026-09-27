@@ -1557,7 +1557,7 @@ document.querySelector("#submit-file").addEventListener("change", () => {
    if (!file || (!allowed.includes(file.type) && !/\.(png|jpe?g|webp|svg)$/i.test(file.name))) {
      status.textContent = text.submitType;
      return;
-   }
+  }
    if (file.size > 4 * 1024 * 1024) {
      status.textContent = text.submitBig;
      return;
@@ -1580,6 +1580,7 @@ document.querySelector("#submit-file").addEventListener("change", () => {
       return;
     }
     status.textContent = text.submitSent;
+    showToast(text.submitSent); // 底部小字不显眼，再给一个明显的全局提示
     document.querySelector("#submit-form").reset();
     document.querySelector("#submit-consent").checked = false;
     const picked = document.querySelector("#submit-file-note");
