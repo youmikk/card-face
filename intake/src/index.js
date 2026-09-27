@@ -70,6 +70,8 @@ const DEFAULT_CATALOG = () => ({
 
 const DAY = 24 * 60 * 60 * 1000;
 const THUMB_MAX = 256 * 1024; // 缩略图上限：站点在浏览器里生成小图后跟原图一起提交
+const FREE_STORAGE = 10 * 1024 * 1024 * 1024; // R2 免费额度：10 GB（本桶用量估算用）
+const USAGE_KEY = "usage.json"; // 用量统计缓存（避免每次打开后台都全量列一遍）
 
 export default {
   async fetch(request, env) {
@@ -89,6 +91,7 @@ async function route(request, env) {
   if (url.pathname === "/submit" && request.method === "POST") return submit(request, env);
   if (url.pathname === "/review" && request.method === "GET") return reviewPage();
   if (url.pathname === "/review/password" && request.method === "GET") return passwordState(env);
+  if (url.pathname === "/review/usage" && request.method === "GET") return usage(request, env);
   if (url.pathname === "/review/password" && request.method === "POST") return passwordSet(request, env);
   if (url.pathname === "/review/password" && request.method === "DELETE") return passwordClear(request, env);
   if (url.pathname === "/review/catalog" && request.method === "GET") return catalogGet(request, env);
@@ -686,6 +689,47 @@ async function publicFile(request, env, id) {
   const item = (await records(env)).find((entry) => entry.id === id && entry.status === STATUS.approved);
   if (!item) return new Response("not found", { status: 404 });
   return objectResponse(request, env, item, "public");
+}
+
+/**
+ * R2 用量估算：列出本桶所有对象求和，并按前缀分类（pending/approved/backups…）。
+ * 结果缓存 30 分钟（`?refresh=1` 强制重算）；免费额度按 R2 的 10 GB 月额度标注。
+ * 注意：只能统计「对象存储量」，R2 的 A/B 类操作次数无法从这里读到。
+ */
+async function usage(request, env) {
+  const guardResult = await guard(request, env);
+  if (guardResult.error) return guardResult.error;
+  const force = new URL(request.url).searchParams.get("refresh") === "1";
+  if (!force) {
+    const cached = await env.BUCKET.get(USAGE_KEY);
+    if (cached) {
+      const data = await cached.json().catch(() => null);
+      if (data && Date.now() - Date.parse(data.at || 0) < 30 * 60 * 1000) {
+        return json({ ...data, cached: true, freeLimitBytes: FREE_STORAGE });
+      }
+    }
+  }
+  let cursor;
+  let objects = 0;
+  let bytes = 0;
+  const byPrefix = {};
+  do {
+    const page = await env.BUCKET.list({ cursor, limit: 1000 });
+    const rows = (page && page.objects) || [];
+    rows.forEach((object) => {
+      const size = Number(object.size) || 0;
+      objects += 1;
+      bytes += size;
+      const prefix = String(object.key || "").split("/")[0] || "(root)";
+      if (!byPrefix[prefix]) byPrefix[prefix] = { objects: 0, bytes: 0 };
+      byPrefix[prefix].objects += 1;
+      byPrefix[prefix].bytes += size;
+    });
+    cursor = page && page.truncated ? page.cursor : undefined;
+  } while (cursor);
+  const data = { at: new Date().toISOString(), objects, bytes, byPrefix };
+  await env.BUCKET.put(USAGE_KEY, JSON.stringify(data), { httpMetadata: { contentType: "application/json" } });
+  return json({ ...data, cached: false, freeLimitBytes: FREE_STORAGE });
 }
 
 async function reviewFile(request, env, id) {

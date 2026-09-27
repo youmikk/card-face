@@ -188,6 +188,8 @@ export const PAGE_TEMPLATE = `<!doctype html>
 
   /* 卡片网格：min() 兜住窄屏，避免出现横向滚动 */
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(330px, 100%), 1fr)); gap: 14px; align-items: start; }
+  .usage-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 2px; color: var(--ink-2); }
+  .usage-row .fs12 { overflow-wrap: anywhere; }
   .grid[data-anim="1"] > .card { animation: rise var(--base) both; animation-delay: calc(var(--i, 0) * 22ms); }
   @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
   .skel {
@@ -200,6 +202,8 @@ export const PAGE_TEMPLATE = `<!doctype html>
 
   /* ---------------------------------------------------------------- 条目卡 */
   .card {
+    /* 缩略图在左（固定小格）、文字在右：图片再大也不会把名称/元数据/字段挤出视野 */
+    display: grid; grid-template-columns: 156px minmax(0, 1fr); align-items: stretch;
     border: 1px solid var(--line); border-radius: var(--r-3); background: var(--panel);
     box-shadow: var(--shadow-1); overflow: hidden;
     transition: border-color var(--fast), box-shadow var(--fast);
@@ -209,10 +213,10 @@ export const PAGE_TEMPLATE = `<!doctype html>
   .card[data-status="hidden"] { border-style: dashed; background: #fbfcfe; }
   .card[data-status="hidden"] .frame img { filter: saturate(.45); }
   .frame {
-    /* 预览限高：图再大也不把名称/字段挤出视野（宽屏下卡片很宽时尤其明显） */
-    position: relative; aspect-ratio: 16 / 9; min-height: 96px; max-height: 176px;
-    display: grid; place-items: center; padding: 8px;
-    background: #f1f4f9; border-bottom: 1px solid var(--line);
+    position: relative; display: grid; place-items: center; padding: 6px;
+    min-height: 116px; max-height: 168px;
+    background: #f1f4f9; border-right: 1px solid var(--line);
+  }
   }
   .frame img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: center; }
   .frame[data-state="loading"] { animation: pulse 1.5s ease-in-out infinite; }
@@ -223,13 +227,13 @@ export const PAGE_TEMPLATE = `<!doctype html>
   .frame[data-state="missing"] .ph-missing { display: inline-flex; }
   .chips { position: absolute; left: 8px; top: 8px; display: flex; gap: 6px; }
   .chip {
-    height: 20px; padding: 0 8px; display: inline-flex; align-items: center;
+  .chips { position: absolute; left: 6px; top: 6px; right: 6px; display: flex; gap: 4px; flex-wrap: wrap; }
     border-radius: 999px; font-size: 12px; font-weight: 600;
     background: rgba(255, 255, 255, .93); color: var(--ink-2); box-shadow: inset 0 0 0 1px var(--line);
   }
   .chip.pending { color: var(--warn); box-shadow: inset 0 0 0 1px var(--warn-line); }
-  .chip.approved { color: var(--ok); box-shadow: inset 0 0 0 1px var(--ok-line); }
-  .chip.hidden { color: var(--ink-2); box-shadow: inset 0 0 0 1px var(--line-2); }
+  .card-body { padding: 12px; display: grid; gap: 10px; min-width: 0; }
+  .card-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; min-width: 0; }
 
   .card-body { padding: 12px; display: grid; gap: 10px; }
   .card-head { display: flex; align-items: baseline; gap: 8px; }
@@ -364,7 +368,7 @@ export const PAGE_TEMPLATE = `<!doctype html>
   .dlg-foot { display: flex; justify-content: flex-end; gap: 8px; }
 
   /* ---------------------------------------------------------------- 移动端 */
-  @media (max-width: 900px) {
+  @media (max-width: 1080px) {
     .split { grid-template-columns: 1fr; }
     .rail { position: static; }
     .cats { max-height: none; }
@@ -374,8 +378,9 @@ export const PAGE_TEMPLATE = `<!doctype html>
     .topline { gap: 10px; }
     .search { flex: 1; min-width: 170px; }
     .search input { width: 100%; }
+    .card { grid-template-columns: 1fr; }
     .grid { grid-template-columns: 1fr; }
-    .frame { min-height: 130px; }
+    .frame { border-right: 0; border-bottom: 1px solid var(--line); min-height: 118px; max-height: 150px; }
     .card-body { padding: 10px; }
     .actions { gap: 6px; }
     .actions .push { margin-left: 0; }
@@ -414,6 +419,10 @@ export const PAGE_TEMPLATE = `<!doctype html>
 <main>
   <div class="subtabs" role="tablist" aria-label="审核状态" id="tab-tabs"></div>
   <section class="panel" id="panel" role="tabpanel" tabindex="-1"></section>
+  <div class="usage-row">
+    <span class="fs12" id="usage-line">R2 存储：读取中…</span>
+    <button type="button" class="btn tiny" id="usage-refresh">刷新用量</button>
+  </div>
 
   <details class="tools">
     <summary>工具</summary>
@@ -1579,6 +1588,7 @@ export const PAGE_TEMPLATE = `<!doctype html>
     if (payload.bankNames && payload.bankNames.length) state.bankNames = payload.bankNames;
   }
   async function load() {
+    if (!state.usageLoaded) { state.usageLoaded = true; loadUsage(false); }
     if (state.password.ready === false || state.locked) { render(); return; }
     var seq = ++state.seq;
     state.loading = true;
@@ -1732,9 +1742,46 @@ export const PAGE_TEMPLATE = `<!doctype html>
       input.select();
     });
   }
+  function formatBytes(value) {
+    var n = num(value);
+    if (n >= 1024 * 1024 * 1024) return (n / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+    if (n >= 1024 * 1024) return (n / (1024 * 1024)).toFixed(1) + ' MB';
+    if (n >= 1024) return Math.round(n / 1024) + ' KB';
+    return n + ' B';
+  }
+  /** R2 用量：服务端列出本桶对象求和（默认 30 分钟缓存，force 时重算）。 */
+  async function loadUsage(force) {
+    var line = $('#usage-line');
+    if (!line) return;
+    line.textContent = 'R2 存储：读取中…';
+    var headers = {};
+    if (state.token) headers.Authorization = 'Bearer ' + state.token;
+    var response;
+    try {
+      response = await fetch('/review/usage' + (force ? '?refresh=1' : ''), { headers: headers });
+    } catch (error) {
+      line.textContent = 'R2 存储：读不到（网络错误）';
+      return;
+    }
+    if (!response.ok) { line.textContent = 'R2 存储：读不到（' + response.status + '）'; return; }
+    var data = await response.json().catch(function () { return null; });
+    if (!data) { line.textContent = 'R2 存储：读不到（返回异常）'; return; }
+    var used = num(data.bytes);
+    var free = num(data.freeLimitBytes) || 10 * 1024 * 1024 * 1024;
+    var detail = Object.keys(data.byPrefix || {}).sort().map(function (key) {
+      var row = data.byPrefix[key] || {};
+      return key + ' ' + formatBytes(row.bytes) + '／' + num(row.objects) + ' 个';
+    }).join('、');
+    line.textContent = 'R2 存储：已用 ' + formatBytes(used) + ' ／ 免费额度 ' + formatBytes(free)
+      + '（还剩 ' + formatBytes(Math.max(0, free - used)) + '）· 共 ' + num(data.objects) + ' 个对象'
+      + (detail ? '（' + detail + '）' : '')
+      + (data.cached ? ' · 缓存于 ' + fmtTime(data.at) : ' · 刚刚更新');
+  }
   function initTools() {
     $('#tool-restore').addEventListener('click', function () { restoreDefaults(this); });
     $('#tool-fix-kinds').addEventListener('click', function () { fixKinds(this); });
+    var refresh = $('#usage-refresh');
+    if (refresh) refresh.addEventListener('click', function () { loadUsage(true); });
   }
 
   boot();

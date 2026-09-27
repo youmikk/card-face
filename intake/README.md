@@ -27,6 +27,7 @@
 | `POST /review/catalog` | `add-category` / `rename-category` / `set-role` / `move-category` / `remove-category`（软删除）/ `update-item`（详细编辑）/ `hide-item` / `restore-item` / `delete-item`（彻底删除）/ `merge-dupes`（保留一条，同图其余连文件删掉，需 `confirm`）/ `fix-kinds`（按分类把历史条目的 kind 写回记录）/ `restore-defaults`（补回被删掉的内置分类） |
 | `GET/POST/DELETE /review/password` | 口令状态 / 轮换（需当前口令）/ 清除 R2 哈希回到 env 控制 |
 | `GET /review/file/<id>` | 预览文件（需要口令）。带 `?t=<类型>&d=<pending 或 approved>` 走快路径：直接拼 key 取对象、**不解析 records.json**；`&thumb=1` 取缩略图（没有则 404，客户端回退原图）。不带 `t` 时退回旧的按记录查找 |
+| `GET /review/usage` | R2 存储用量估算（需要口令）：列出本桶对象求和，返回 `{ objects, bytes, byPrefix, freeLimitBytes, at, cached }`；结果缓存 30 分钟，`?refresh=1` 强制重算。注意：只能统计对象存储量，R2 的 A/B 类操作次数读不到 |
 
 ## 安全设计
 

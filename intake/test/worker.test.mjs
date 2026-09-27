@@ -972,3 +972,20 @@ test("缩略图：提交时存、通过时迁移、彻底删除时清掉；/revi
   await call(env, "/review/catalog", { method: "POST", token: PASSWORD, ip, payload: { action: "delete-item", id: item.id, confirm: true } });
   assert.equal(env.BUCKET.keys().some((key) => key.includes(item.id)), false, "原图与缩略图都要清掉");
 });
+
+test("R2 用量接口：需要口令，统计对象数与字节并按前缀分类，结果带缓存", async () => {
+  const env = makeEnv();
+  const ip = "21.0.0.1";
+  await submitRaw(env, { name: "用量自检", ip, width: 200, height: 120 });
+  assert.equal((await call(env, "/review/usage")).status, 401, "需要口令");
+  const first = await (await call(env, "/review/usage", { token: PASSWORD, ip })).json();
+  assert.equal(first.objects > 0, true, "应统计到对象");
+  assert.equal(first.bytes > 0, true);
+  assert.equal(first.byPrefix.pending.objects > 0, true, "应按前缀分类到 pending/");
+  assert.equal(first.freeLimitBytes, 10 * 1024 * 1024 * 1024, "免费额度按 10 GB 标注");
+  assert.equal(first.cached, false);
+  const second = await (await call(env, "/review/usage", { token: PASSWORD, ip })).json();
+  assert.equal(second.cached, true, "30 分钟内应返回缓存");
+  const forced = await (await call(env, "/review/usage?refresh=1", { token: PASSWORD, ip })).json();
+  assert.equal(forced.cached, false, "refresh=1 强制重算");
+});
