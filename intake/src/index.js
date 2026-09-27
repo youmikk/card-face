@@ -88,6 +88,11 @@ async function route(request, env) {
   const url = new URL(request.url);
   if (request.method === "OPTIONS") return cors(new Response(null, { status: 204 }));
   if (url.pathname === "/manifest" && request.method === "GET") return manifest(request, env);
+  if (url.pathname === "/robots.txt" && request.method === "GET") {
+    return new Response("User-agent: *\nDisallow: /\n", {
+      headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600" },
+    });
+  }
   if (url.pathname === "/submit" && request.method === "POST") return submit(request, env);
   if (url.pathname === "/review" && request.method === "GET") return reviewPage();
   if (url.pathname === "/review/password" && request.method === "GET") return passwordState(env);
@@ -1328,6 +1333,8 @@ async function reviewPage() {
     headers: {
       "Content-Type": "text/html; charset=utf-8",
       "Cache-Control": "no-store",
+      // 审核台不要被搜索引擎收录（页面壳是公开的，数据才需要口令）
+      "X-Robots-Tag": "noindex, nofollow",
       "X-Content-Type-Options": "nosniff",
       "Referrer-Policy": "no-referrer",
       "Content-Security-Policy": `default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}'; connect-src 'self'; img-src 'self' blob: data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`,

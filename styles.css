@@ -131,6 +131,12 @@ h2 { margin: 0; font-size: 15px; }
 .note.rule { color: #b4453a; font-weight: 600; }
 .legal { margin: 0; padding: 12px 14px; }
 
+/* 页面底部给搜索引擎看的静态说明（视觉上克制，不影响主界面） */
+.seo { grid-column: 1 / -1; margin: 18px 0 0; padding: 14px 0 0; border-top: 1px solid rgba(0, 0, 0, .08); color: var(--muted); font-size: 12px; line-height: 1.65; max-width: 96ch; }
+.seo h2 { margin: 0 0 6px; font-size: 13px; }
+.seo p { margin: 0 0 6px; }
+.seo .en { opacity: .85; }
+
 .stage {
   margin: 14px 0;
   padding: 16px 12px;
