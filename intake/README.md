@@ -22,9 +22,9 @@
 | `GET /files/<id>` | 公开读取已通过的文件（带 ETag，30 天 stale-while-revalidate） |
 | `GET /review` | 审核页面（需要口令） |
 | `GET /review/items` | 待审列表：`?q=` 搜索、`?limit=&offset=` 分页，返回 `total`、`pendingByKind` 与 `bankNames` |
-| `POST /review/items` | `approve` / `reject`（拒绝会删掉文件，记录保留 30 天） |
+| `POST /review/items` | `approve` / `reject`（拒绝会删掉文件，记录保留 30 天）/ `approve-dupes`（同图一起通过，各自保留自己的分类）/ `reject-dupes`（同图一起拒绝） |
 | `GET /review/catalog` | 分类、每类计数（按「类型:分类」给键）、已通过/已隐藏按类型计数、未归类条目数、隐藏列表、银行名称建议（`bankNames`）；`?kind=&category=&q=&limit=&offset=`，`category=__orphan__` 查看分类已删除的条目，带 `q` 时跨分类跨类型搜索 |
-| `POST /review/catalog` | `add-category` / `rename-category` / `set-role` / `move-category` / `remove-category`（软删除）/ `update-item`（详细编辑）/ `hide-item` / `restore-item` / `delete-item`（彻底删除）/ `fix-kinds`（按分类把历史条目的 kind 写回记录）/ `restore-defaults`（补回被删掉的内置分类） |
+| `POST /review/catalog` | `add-category` / `rename-category` / `set-role` / `move-category` / `remove-category`（软删除）/ `update-item`（详细编辑）/ `hide-item` / `restore-item` / `delete-item`（彻底删除）/ `merge-dupes`（保留一条，同图其余连文件删掉，需 `confirm`）/ `fix-kinds`（按分类把历史条目的 kind 写回记录）/ `restore-defaults`（补回被删掉的内置分类） |
 | `GET/POST/DELETE /review/password` | 口令状态 / 轮换（需当前口令）/ 清除 R2 哈希回到 env 控制 |
 | `GET /review/file/<id>` | 预览待审、已通过或已隐藏的文件（需要口令） |
 
@@ -58,6 +58,8 @@
 
 - **详细编辑**：改名称、改分类（换分组）、改银行名称（可搜索内置名单，也可以自己填）、改备注。待审条目点「通过」时一并生效；已通过 / 已隐藏条目点「保存修改」。
 - **搜索**：顶部搜索框按 名称 / 备注 / 银行名称 / ID 过滤（服务端过滤，300ms 防抖）。
+- **同图合并**：按内容指纹（sha256）自动认出「一模一样的图」，卡片上标出「同图另有 N 条」并列出它们各自的分类/状态，提供「同图一起通过」（各自保留自己选的分类）、「同图一起拒绝」、「合并为一条（其余连文件删掉）」。同一张图被不同投稿人选了不同分类时，由审核者决定合并到哪一条或让它们各自上线。
+- **预览加载**：只在卡片滚到视口附近时才下载，且同一 id 只下一次（缓存复用）；再次渲染 / 搜索 / 保存都不会重新下载。`/review/file` 用 `private, max-age=300` 短缓存。文件不在 R2 里时显示「文件缺失」占位，不再画破图标。
 - **元数据**：每张卡片显示提交时间、审核时间、像素尺寸、文件大小、类型、内容指纹前 10 位、当前状态。
 - **三种移除**：`隐藏`（软删除，30 天内可「恢复」）、`拒绝并删除文件`（待审专用，文件立即删、记录留 30 天）、`彻底删除`（文件与记录一起移除，不可恢复，需二次确认）。
 - **分类管理**：改名、上/下移、设置角色（普通 / 银行 / 其他）、隐藏整个分类（其中条目转为隐藏，可逐个恢复）；分类行显示条目数量。

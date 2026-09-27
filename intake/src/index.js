@@ -610,7 +610,8 @@ function fileHeaders(item, cache, etag) {
   const headers = new Headers();
   const type = TYPES[item.type] || "application/octet-stream";
   headers.set("Content-Type", type);
-  headers.set("Cache-Control", cache ? "public, max-age=86400, stale-while-revalidate=604800" : "private, no-store");
+  // mode: "public" = 站点用的 /files（长缓存）；其它 = 审核台预览（短缓存，避免每次重画都重新下载）
+  headers.set("Cache-Control", cache === "public" ? "public, max-age=86400, stale-while-revalidate=604800" : "private, max-age=300, stale-while-revalidate=600");
   if (etag) headers.set("ETag", etag);
   headers.set("Access-Control-Allow-Origin", "*");
   headers.set("X-Content-Type-Options", "nosniff");
@@ -633,7 +634,7 @@ async function objectResponse(request, env, item, cache) {
 async function publicFile(request, env, id) {
   const item = (await records(env)).find((entry) => entry.id === id && entry.status === STATUS.approved);
   if (!item) return new Response("not found", { status: 404 });
-  return objectResponse(request, env, item, true);
+  return objectResponse(request, env, item, "public");
 }
 
 async function reviewFile(request, env, id) {
@@ -641,7 +642,7 @@ async function reviewFile(request, env, id) {
   if (guardResult.error) return guardResult.error;
   const item = (await records(env)).find((entry) => entry.id === id && entry.status !== STATUS.rejected);
   if (!item) return new Response("not found", { status: 404 });
-  return objectResponse(request, env, item, false);
+  return objectResponse(request, env, item, "private");
 }
 
 function logoWidth(item) {
@@ -702,8 +703,18 @@ function kindOfItem(item, categories) {
   return item.kind === "logo" ? "logo" : "face";
 }
 
+/** 内容指纹 → 条数（不含已拒绝、不含没有指纹的老数据），用于「同图」提示与合并。 */
+function hashCounts(items) {
+  const counts = new Map();
+  (items || []).forEach((item) => {
+    if (!item.hash || item.status === STATUS.rejected) return;
+    counts.set(item.hash, (counts.get(item.hash) || 0) + 1);
+  });
+  return counts;
+}
+
 /** 审核页统一使用的条目视图（带运营需要的提交时间/大小/尺寸/指纹等元数据）。 */
-function adminItem(item, categories) {
+function adminItem(item, categories, counts) {
   return {
     id: item.id,
     kind: kindOfItem(item, categories),
@@ -721,6 +732,7 @@ function adminItem(item, categories) {
     height: Number(item.height) || 0,
     size: Number(item.size) || 0,
     hash: item.hash || "",
+    sameHash: counts ? Math.max(0, (counts.get(item.hash) || 1) - 1) : 0,
     url: `/review/file/${item.id}`,
   };
 }
@@ -738,8 +750,9 @@ async function reviewItems(request, env) {
   all.filter((item) => item.status === STATUS.pending).forEach((item) => {
     pendingByKind[kindOfItem(item, data.categories)] += 1;
   });
+  const hashTally = hashCounts(all);
   return json({
-    items: pending.slice(offset, offset + limit).map((item) => adminItem(item, data.categories)),
+    items: pending.slice(offset, offset + limit).map((item) => adminItem(item, data.categories, hashTally)),
     total: pending.length,
     pendingByKind,
     limit,
@@ -777,6 +790,7 @@ async function catalogGet(request, env) {
   else if (category === "__orphan__") list = orphans;
   else list = approved.filter((item) => kindOf(item) === kind && (!category || item.category === category));
   const hidden = all.filter((item) => item.status === STATUS.hidden && matchesQuery(item, q));
+  const hashTally = hashCounts(all);
   return json({
     categories: data.categories,
     counts,
@@ -784,14 +798,54 @@ async function catalogGet(request, env) {
     hiddenByKind,
     orphans: orphans.length,
     searching,
-    items: list.slice(offset, offset + limit).map((item) => adminItem(item, data.categories)),
+    items: list.slice(offset, offset + limit).map((item) => adminItem(item, data.categories, hashTally)),
     total: list.length,
-    hidden: hidden.slice(0, 200).map((item) => adminItem(item, data.categories)),
+    hidden: hidden.slice(0, 200).map((item) => adminItem(item, data.categories, hashTally)),
     hiddenTotal: hidden.length,
     bankNames: bankNameOptions(all),
     limit,
     offset,
   });
+}
+
+/**
+ * 通过一条待审条目：写状态 + 把对象从 pending/ 迁到 approved/（幂等：源已不在时接受已迁移的目标）。
+ * wanted = { category, bank, label, name }；返回 { error, status } 或 { ok: true }。
+ */
+async function approveOne(env, data, item, now, wanted) {
+  const ownKind = kindOfItem(item, data.categories);
+  const target = data.categories.find((entry) => entry.id === wanted.category && entry.kind === ownKind);
+  if (!target) return { error: "category", status: 400 };
+  const label = String(wanted.label === undefined ? item.label || "" : wanted.label).trim().slice(0, 24);
+  // 只有 logo 在「银行」角色分类下才要求银行名称（与 /submit 的口径一致）
+  const needsBank = ownKind === "logo" && target.role === "bank";
+  let picked = needsBank ? resolveBank(wanted.bank === undefined ? item.bank || "" : wanted.bank) : { value: "", name: "" };
+  // 同图批量通过时，某条自己没填银行就沿用「以哪条为准」那条的银行
+  if (needsBank && !picked.value && wanted.fallbackBank) picked = resolveBank(wanted.fallbackBank);
+  if (needsBank && !picked.value) return { error: "bank", status: 400 };
+  if (!item.key) return { error: "file", status: 404 };
+  item.kind = ownKind;
+  item.category = target.id;
+  item.bank = needsBank ? picked.value : "";
+  item.bankName = needsBank ? picked.name : "";
+  if (wanted.name) item.name = String(wanted.name).trim().slice(0, 40) || item.name;
+  item.label = label;
+  item.status = STATUS.approved;
+  item.reviewedAt = now;
+  delete item.hiddenAt;
+  delete item.hiddenFrom;
+  const next = `approved/${item.id}.${item.type}`;
+  if (item.key !== next) {
+    const object = await env.BUCKET.get(item.key);
+    if (object) {
+      await env.BUCKET.put(next, object.body, { httpMetadata: object.httpMetadata });
+      await env.BUCKET.delete(item.key);
+    } else if (!(await env.BUCKET.head(next))) {
+      return { error: "file", status: 404 };
+    }
+    item.key = next;
+  }
+  return { ok: true };
 }
 
 async function reviewAction(request, env) {
@@ -808,57 +862,48 @@ async function reviewAction(request, env) {
     // 只处理待审条目：已通过的要用「隐藏」或「删除」，否则会删掉线上文件且无法恢复；
     // 被拒绝的条目文件已删除，也不能再通过。
     if (item.status !== STATUS.pending) return { commit: false, result: { error: "state", status: 409 } };
-    if (body.action === "reject") {
-      const key = item.key || "";
-      item.status = STATUS.rejected;
-      item.rejectedAt = now;
-      item.reviewedAt = now;
-      item.key = "";
-      return { commit: true, result: { ok: true, key } };
+    // 「同图」批量：approve-dupes / reject-dupes 会连带处理内容指纹相同的其它待审条目
+    const batched = body.action === "approve-dupes" || body.action === "reject-dupes";
+    const siblings = batched && item.hash
+      ? items.filter((entry) => entry.id !== item.id && entry.status === STATUS.pending && entry.hash === item.hash)
+      : [];
+    if (body.action === "reject" || body.action === "reject-dupes") {
+      const doomed = [item, ...siblings];
+      const keys = [];
+      doomed.forEach((entry) => {
+        if (entry.key) keys.push(entry.key);
+        entry.status = STATUS.rejected;
+        entry.rejectedAt = now;
+        entry.reviewedAt = now;
+        entry.key = "";
+      });
+      return { commit: true, result: { ok: true, keys, count: doomed.length } };
     }
-    if (body.action !== "approve") return { commit: false, result: { error: "action", status: 400 } };
-    // 老数据可能没写 kind（或早期写成 face），以分类推断出的类型为准，并顺手写回修正
-    const ownKind = kindOfItem(item, data.categories);
-    const target = data.categories.find((entry) => entry.id === body.category && entry.kind === ownKind);
-    if (!target) return { commit: false, result: { error: "category", status: 400 } };
-    const label = String(body.label || item.label || "").trim().slice(0, 24);
-    // 只有 logo 在「银行」角色分类下才要求银行名称（与 /submit 的口径一致）
-    const needsBank = ownKind === "logo" && target.role === "bank";
-    const picked = needsBank ? resolveBank(body.bank || item.bank || "") : { value: "", name: "" };
-    if (needsBank && !picked.value) {
-      return { commit: false, result: { error: "bank", status: 400 } };
+    if (body.action !== "approve" && body.action !== "approve-dupes") {
+      return { commit: false, result: { error: "action", status: 400 } };
     }
-    if (!item.key) return { commit: false, result: { error: "file", status: 404 } };
-    item.kind = ownKind;
-    item.category = target.id;
-    item.bank = needsBank ? picked.value : "";
-    item.bankName = needsBank ? picked.name : "";
-    if (body.name) item.name = String(body.name).trim().slice(0, 40) || item.name;
-    item.label = label;
-    item.status = STATUS.approved;
-    item.reviewedAt = now;
-    delete item.hiddenAt;
-    delete item.hiddenFrom;
-    // 通过后把对象从 pending/ 迁到 approved/（幂等：重试时源已不在则接受已迁移的目标）
-    const next = `approved/${item.id}.${item.type}`;
-    if (item.key !== next) {
-      const object = await env.BUCKET.get(item.key);
-      if (object) {
-        await env.BUCKET.put(next, object.body, { httpMetadata: object.httpMetadata });
-        await env.BUCKET.delete(item.key);
-      } else if (!(await env.BUCKET.head(next))) {
-        return { commit: false, result: { error: "file", status: 404 } };
-      }
-      item.key = next;
+    const first = await approveOne(env, data, item, now, { category: body.category, bank: body.bank, label: body.label, name: body.name });
+    if (first.error) return { commit: false, result: first };
+    const approved = [item.id];
+    for (const sibling of siblings) {
+      const done = await approveOne(env, data, sibling, now, {
+        category: sibling.category,
+        bank: sibling.bank,
+        label: sibling.label,
+        name: sibling.name,
+        fallbackBank: body.bank || item.bank || "",
+      });
+      if (!done.error) approved.push(sibling.id);
     }
-    return { commit: true, result: { ok: true, key: item.id } };
+    return { commit: true, result: { ok: true, key: item.id, approved } };
   });
   if (outcome && outcome.error) return json({ error: outcome.error }, outcome.status);
-  if (body.action === "reject" && outcome && outcome.key) {
-    await env.BUCKET.delete(outcome.key);
+  // 拒绝会立刻删掉文件；批量拒绝时逐个删
+  if (outcome && Array.isArray(outcome.keys)) {
+    for (const key of outcome.keys) await env.BUCKET.delete(key);
   }
   await rebuildManifest(env, origin).catch(() => {});
-  return json({ ok: true });
+  return json({ ok: true, approved: outcome && outcome.approved ? outcome.approved.length : undefined, rejected: outcome && outcome.count });
 }
 
 async function catalogAction(request, env) {
@@ -937,6 +982,30 @@ async function catalogAction(request, env) {
     console.log("intake: 删除条目", body.id);
     await rebuildManifest(env, origin).catch(() => {});
     return json({ ok: true });
+  }
+
+  // 合并同图：保留这一条，把内容指纹相同的其它条目（连文件）全部删掉（页面会二次确认）
+  if (body.action === "merge-dupes") {
+    if (body.confirm !== true) return json({ error: "confirm" }, 400);
+    const snapshot = await records(env);
+    const ref = snapshot.find((entry) => entry.id === body.id);
+    if (!ref) return json({ error: "missing" }, 404);
+    const doomed = snapshot.filter((entry) => entry.id !== ref.id && ref.hash && entry.hash === ref.hash && entry.status !== STATUS.rejected);
+    if (!doomed.length) return json({ ok: true, merged: 0 });
+    const ids = new Set(doomed.map((entry) => entry.id));
+    let keys = [];
+    const outcome = await mutateRecords(env, (items) => {
+      keys = items.filter((entry) => ids.has(entry.id)).map((entry) => entry.key).filter(Boolean);
+      const kept = items.filter((entry) => !ids.has(entry.id));
+      items.length = 0;
+      items.push(...kept);
+      return { commit: true, result: { ok: true } };
+    });
+    if (outcome && outcome.error) return json({ error: outcome.error }, outcome.status);
+    for (const key of keys) await env.BUCKET.delete(key);
+    console.log("intake: 合并同图", ref.id, "删掉", doomed.length, "条");
+    await rebuildManifest(env, origin).catch(() => {});
+    return json({ ok: true, merged: doomed.length });
   }
 
   // 其余动作会改动 catalog.json，全部走乐观锁；mutator 内的记录改动是幂等的
@@ -1174,6 +1243,9 @@ const PAGE_TEMPLATE = `<!doctype html>
   .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
   .toolbar input { flex: 1; min-width: 180px; }
   .meta { margin: 0; color: #667385; font-size: 12px; line-height: 1.5; word-break: break-all; }
+  .frame { position: relative; }
+  .dupes { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  .miss { position: absolute; left: 8px; bottom: 8px; padding: 2px 8px; border-radius: 999px; background: #fff6e6; color: #7a5a12; font-size: 12px; }
   .status { color: #667385; font-size: 13px; font-weight: 400; }
   @media (max-width: 700px) { article { grid-template-columns: 1fr; } }
 </style>
@@ -1199,7 +1271,67 @@ let openCategory = "face:solid";
 let query = "";
 let searchTimer = 0;
 const state = { pending: [], pendingTotal: 0, pendingByKind: { face: 0, logo: 0 }, approved: [], approvedTotal: 0, approvedByKind: { face: 0, logo: 0 }, hidden: [], hiddenTotal: 0, hiddenByKind: { face: 0, logo: 0 }, categories: [], counts: {}, bankNames: [], orphans: 0, searching: false, limit: 60, approvedLimit: 80 };
-const previews = [];
+/* 预览缓存：同一个 id 只下载一次；重画、搜索、保存都不再重复请求（原先每次都撤销重下） */
+const previewCache = new Map();
+const PREVIEW_CACHE_MAX = 400;
+function rememberPreview(id, url) {
+  previewCache.set(id, url);
+  if (previewCache.size > PREVIEW_CACHE_MAX) {
+    const oldest = previewCache.keys().next().value;
+    URL.revokeObjectURL(previewCache.get(oldest));
+    previewCache.delete(oldest);
+  }
+}
+/** 文件不在了（历史数据 / 被删过）时不要画破图标，直接标注出来 */
+function markPreviewMissing(img) {
+  img.removeAttribute("src");
+  img.alt = "文件缺失";
+  const holder = img.parentElement;
+  if (holder && !holder.querySelector(".miss")) {
+    const badge = document.createElement("span");
+    badge.className = "miss";
+    badge.textContent = "文件缺失";
+    holder.append(badge);
+  }
+}
+/** 需要鉴权才能读的预览：用 fetch 带 Authorization 取 blob（<img> 自己带不了头）。 */
+function fetchPreview(img, id) {
+  const cached = previewCache.get(id);
+  if (cached) { img.src = cached; return; }
+  fetch("/review/file/" + id, { headers: auth() }).then(function (response) {
+    if (!response.ok) { markPreviewMissing(img); return null; }
+    return response.blob().then(function (blob) {
+      const url = URL.createObjectURL(blob);
+      rememberPreview(id, url);
+      img.src = url;
+      return null;
+    });
+  }).catch(function () { markPreviewMissing(img); });
+}
+/* 懒加载：卡片滚到视口附近才下载预览，一屏几十张不再一次性全下 */
+const previewObserver = typeof IntersectionObserver === "function" ? new IntersectionObserver(function (entries) {
+  entries.forEach(function (entry) {
+    if (!entry.isIntersecting) return;
+    previewObserver.unobserve(entry.target);
+    const id = entry.target.dataset.previewId;
+    if (id) fetchPreview(entry.target, id);
+  });
+}, { rootMargin: "400px 0px" }) : null;
+function loadPreview(img, id) {
+  img.loading = "lazy";
+  img.decoding = "async";
+  img.dataset.previewId = id;
+  if (previewObserver) previewObserver.observe(img);
+  else fetchPreview(img, id);
+}
+/* 兜底：渲染完先把前若干张直接加载（某些环境交叉观察器不触发，例如隐藏/零高度视口） */
+function primePreviews(limit, retry) {
+  const imgs = Array.prototype.slice.call(document.querySelectorAll("img[data-preview-id]")).filter(function (img) { return !img.src; });
+  imgs.slice(0, limit || 12).forEach(function (img) { fetchPreview(img, img.dataset.previewId); });
+  if (!retry && imgs.length) {
+    setTimeout(function () { if (!previewCache.size) primePreviews(24, true); }, 800);
+  }
+}
 
 function auth() { return token ? { Authorization: "Bearer " + token } : {}; }
 function notice(message, kind) {
@@ -1275,18 +1407,6 @@ function fmtTime(value) {
   return time.toLocaleString("zh-CN", { hour12: false });
 }
 
-/** 需要鉴权才能读的预览图：fetch 成 blob 再显示，否则 <img> 带不了 Authorization。 */
-function loadPreview(img, id) {
-  fetch("/review/file/" + id, { headers: auth() }).then(function (response) {
-    if (!response.ok) return null;
-    return response.blob().then(function (blob) {
-      const url = URL.createObjectURL(blob);
-      previews.push(url);
-      img.src = url;
-      return null;
-    });
-  }).catch(function () {});
-}
 
 /** 统一提交：成功就整体重载，失败把服务端的错误码显示出来。 */
 function send(path, body) {
@@ -1301,6 +1421,19 @@ function send(path, body) {
   });
 }
 
+/** 当前列表里与这条内容指纹相同的其它条目（把「不同人选了不同分类」摆出来） */
+function sameHashOthers(item) {
+  const rows = [];
+  const seen = {};
+  [state.pending, state.approved, state.hidden].forEach(function (pool) {
+    (pool || []).forEach(function (row) {
+      if (row.id === item.id || !item.hash || row.hash !== item.hash || seen[row.id]) return;
+      seen[row.id] = true;
+      rows.push(row);
+    });
+  });
+  return rows;
+}
 function targetCategory(select) {
   return state.categories.find(function (entry) { return entry.id === select.value; }) || null;
 }
@@ -1414,7 +1547,60 @@ function itemEditor(item) {
   });
   row.append(primary, secondary, remove);
   body.append(meta, nameRow, catRow, bankRow, labelRow, row);
-  card.append(preview, body);
+  const frame = document.createElement("div");
+  frame.className = "frame";
+  frame.append(preview);
+  card.append(frame, body);
+  // 同图（内容指纹相同）：把差异摆出来，并提供批量处理
+  if (item.sameHash) {
+    const dupes = document.createElement("div");
+    dupes.className = "dupes";
+    const note = document.createElement("span");
+    note.className = "meta";
+    const others = sameHashOthers(item);
+    note.textContent = "同图另有 " + item.sameHash + " 条" + (others.length
+      ? "：" + others.map(function (row) { return (row.name || row.id) + "（" + (row.category || "无分类") + " · " + statusLabel(row.status) + "）"; }).join("；")
+      : "（不在当前列表）");
+    dupes.append(note);
+    if (item.status === "pending") {
+      const all = document.createElement("button");
+      all.type = "button";
+      all.className = "ok";
+      all.textContent = "同图一起通过";
+      all.addEventListener("click", function () {
+        send("/review/items", {
+          action: "approve-dupes",
+          id: item.id,
+          name: nameInput.value,
+          category: catSelect.value,
+          bank: bankInput.value,
+          label: labelInput.value,
+        });
+      });
+      const none = document.createElement("button");
+      none.type = "button";
+      none.className = "no";
+      none.textContent = "同图一起拒绝";
+      none.addEventListener("click", function () {
+        if (!confirm("把这一条和同图的其它 " + item.sameHash + " 条一起拒绝并删除文件？")) return;
+        send("/review/items", { action: "reject-dupes", id: item.id });
+      });
+      dupes.append(all, none);
+    }
+    const merge = document.createElement("button");
+    merge.type = "button";
+    merge.textContent = "合并为一条（其余删除）";
+    merge.addEventListener("click", async function () {
+      if (!confirm("保留「" + item.name + "」这一条，把同图的其它 " + item.sameHash + " 条（连文件）删掉？")) return;
+      const response = await post("/review/catalog", { action: "merge-dupes", id: item.id, confirm: true });
+      if (!response.ok) { notice("合并失败，请稍后再试。", "warn"); return; }
+      const info = await response.json().catch(function () { return null; });
+      notice("已合并：删掉 " + ((info && info.merged) || 0) + " 条同图条目。");
+      load();
+    });
+    dupes.append(merge);
+    body.append(dupes);
+  }
   return card;
 }
 
@@ -1611,8 +1797,6 @@ function drawHidden() {
 }
 
 async function load() {
-  previews.forEach(function (url) { URL.revokeObjectURL(url); });
-  previews.length = 0;
   let info = null;
   try { info = await (await fetch("/review/password")).json(); } catch (error) { info = null; }
   if (!info || !info.ready) {
@@ -1670,6 +1854,7 @@ async function load() {
     button.addEventListener("click", function () { state.limit = Math.min(200, state.pending.length + 60); load(); });
     moreBox.append(button);
   }
+  primePreviews();
 }
 document.querySelector("#change-password").addEventListener("click", async function () {
   const next = (prompt("新审核密码（至少 12 位）") || "").trim();

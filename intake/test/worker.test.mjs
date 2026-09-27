@@ -432,7 +432,8 @@ test("未通过审核的内容不可公开访问，且审核文件需要鉴权",
   assert.equal((await call(env, `/files/${item.id}`)).status, 404);
   assert.equal((await call(env, `/review/file/${item.id}`)).status, 401);
   assert.equal((await call(env, `/review/file/${item.id}`, { token: PASSWORD, ip: "10.6.0.1" })).status, 200);
-  assert.equal((await call(env, `/review/file/${item.id}`, { token: PASSWORD, ip: "10.6.0.1" })).headers.get("Cache-Control"), "private, no-store");
+  // 审核台预览改成短缓存 private（浏览器可复用，避免每次重画都重新下载），但不能是公开缓存
+  assert.equal((await call(env, `/review/file/${item.id}`, { token: PASSWORD, ip: "10.6.0.1" })).headers.get("Cache-Control"), "private, max-age=300, stale-while-revalidate=600");
 });
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -889,4 +890,47 @@ test("记录里存下来的银行名称优先显示（id 从名单里消失也�
   assert.equal(row.bankBuiltin, false);
   const searched = await (await call(env, `/review/catalog?kind=logo&q=${encodeURIComponent("已下架")}`, { token: PASSWORD, ip })).json();
   assert.equal(searched.items.some((entry) => entry.id === item.id), true, "按存下来的名称也能搜到");
+});
+
+test("同图识别与批量处理：approve-dupes / reject-dupes / merge-dupes", async () => {
+  const env = makeEnv();
+  const ip = "19.0.0.1";
+  // 两张内容完全相同的图（同指纹），但投稿人选了不同分类
+  const a = (await submitRaw(env, { name: "同图A", kind: "face", category: "solid", ip })).item;
+  const b = (await submitRaw(env, { name: "同图B", kind: "face", category: "other", ip })).item;
+  const c = (await submitRaw(env, { name: "别的图", kind: "face", category: "solid", ip, width: 640, height: 400 })).item;
+  const list = await (await call(env, "/review/items", { token: PASSWORD, ip })).json();
+  assert.equal(list.items.find((row) => row.id === a.id).sameHash, 1, "应认出同图还有 1 条");
+  assert.equal(list.items.find((row) => row.id === c.id).sameHash, 0, "不同内容不该算同图");
+
+  // 一起通过：各自保留自己选的分类
+  const batch = await call(env, "/review/items", { method: "POST", token: PASSWORD, ip, payload: { action: "approve-dupes", id: a.id, category: "solid", name: "同图A" } });
+  assert.equal(batch.status, 200);
+  const approved = await (await call(env, "/review/catalog?kind=face", { token: PASSWORD, ip })).json();
+  assert.equal(approved.items.find((row) => row.id === a.id).category, "solid");
+  assert.equal(approved.items.find((row) => row.id === b.id).category, "other", "批量通过保留各自分类");
+  assert.equal(approved.items.some((row) => row.id === c.id), false, "不同图不受影响");
+  const pending = await (await call(env, "/review/items", { token: PASSWORD, ip })).json();
+  assert.equal(pending.items.some((row) => row.id === c.id), true);
+
+  // 一起拒绝：文件一起删掉
+  // 这一组用另一个尺寸，保证和上面那组不是同一张图
+  const d = (await submitRaw(env, { name: "同图D", kind: "face", category: "solid", ip, width: 700, height: 300 })).item;
+  const e = (await submitRaw(env, { name: "同图E", kind: "face", category: "solid", ip, width: 700, height: 300 })).item;
+  const rejected = await (await call(env, "/review/items", { method: "POST", token: PASSWORD, ip, payload: { action: "reject-dupes", id: d.id } })).json();
+  assert.equal(rejected.ok, true);
+  assert.equal(rejected.rejected, 2, "两条同图一起被拒");
+  assert.equal(env.BUCKET.keys().some((key) => key.endsWith(`${d.id}.png`)), false);
+  assert.equal(env.BUCKET.keys().some((key) => key.endsWith(`${e.id}.png`)), false);
+
+  // 合并成一条：保留这条，其余连同文件删掉（需二次确认）
+  const f = (await submitRaw(env, { name: "同图F", kind: "face", category: "solid", ip, width: 600, height: 200 })).item;
+  const g = (await submitRaw(env, { name: "同图G", kind: "face", category: "transit", ip, width: 600, height: 200 })).item;
+  const noConfirm = await call(env, "/review/catalog", { method: "POST", token: PASSWORD, ip, payload: { action: "merge-dupes", id: f.id } });
+  assert.equal(noConfirm.status, 400, "合并必须二次确认");
+  const merged = await (await call(env, "/review/catalog", { method: "POST", token: PASSWORD, ip, payload: { action: "merge-dupes", id: f.id, confirm: true } })).json();
+  assert.equal(merged.merged, 1);
+  const after = await (await call(env, "/review/items", { token: PASSWORD, ip })).json();
+  assert.equal(after.items.some((row) => row.id === g.id), false, "重复的那条连文件一起没了");
+  assert.equal(after.items.some((row) => row.id === f.id), true, "保留的那条还在");
 });
