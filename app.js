@@ -110,6 +110,12 @@ uiText.zh.clearCard = "清空卡面";
 uiText.zh.clearRef = "清空参考图";
 uiText.zh.submitConsent = "我已阅读并同意第七条：提交的图片会上传到审核服务，通过后公开";
 uiText.zh.submitConsentNeed = "请先勾选确认第七条。";
+uiText.zh.submitRules = "我确认没有上传政治、色情、血腥、暴力等违规内容";
+uiText.zh.submitRulesNote = "禁止上传政治敏感、色情、血腥、暴力等违规内容，一经发现一律拒绝。";
+uiText.zh.submitRulesNeed = "请先确认没有上传违规内容。";
+uiText.en.submitRules = "I confirm I am not uploading political, pornographic, gory, or violent content";
+uiText.en.submitRulesNote = "Political, pornographic, gory, or violent content is not allowed and will be rejected.";
+uiText.en.submitRulesNeed = "Please confirm the content rules first.";
 uiText.zh.submitError = { rate: "提交太频繁，请稍后再试。", big: "图片不能超过 4 MB。", size: "图片尺寸过大，请压缩后再提交。", svg: "这张 SVG 含有不安全内容，请清理后重试。", file: "请使用 PNG、JPG、WebP 或 SVG。", bank: "请选择有效的银行。", quota: "待审核内容已满，请稍后再试。", fields: "请把信息填写完整。", form: "提交格式有误，请重试。", server: "服务器出错，请稍后再试。" };
 uiText.en.logoNeed = "Upload a card image first";
 uiText.en.clearCard = "Clear card";
@@ -161,6 +167,9 @@ const terms = {
     ["9. Changes", "These terms may be updated. Continuing to use the site after an update means you accept the updated terms."],
   ],
 };
+
+terms.zh.push(["十一、禁止上传的内容", "禁止上传任何政治敏感、色情、血腥、暴力、违法或侵犯他人权益的内容；一经发现一律拒绝，并可能保留记录用于追溯。请只上传你有权公开使用的图片。"]);
+terms.en.push(["11. Prohibited content", "Do not upload political, pornographic, gory, violent, illegal, or rights-infringing content. Such submissions are rejected and may be kept on record for follow-up. Only upload images you have the right to publish."]);
 
 function renderTerms() {
   const body = document.querySelector("#terms-body");
@@ -1551,6 +1560,10 @@ document.querySelector("#submit-file").addEventListener("change", () => {
    }
   if (!document.querySelector("#submit-consent").checked) {
     status.textContent = uiText[language].submitConsentNeed;
+    return;
+  }
+  if (!document.querySelector("#submit-rules").checked) {
+    status.textContent = uiText[language].submitRulesNeed;
     return;
   }
    const allowed = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];

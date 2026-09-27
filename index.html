@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>卡面设计生成器</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=20260926g" />
+  <link rel="stylesheet" href="styles.css?v=20260926h" />
 </head>
 <body>
   <header class="bar">
@@ -153,6 +153,8 @@
         <p class="note" id="submit-note"></p>
         <label class="check submit-consent"><input id="submit-consent" type="checkbox" /> <span data-i18n="submitConsent">我已阅读并同意第七条：提交的图片会上传到审核服务，通过后公开</span></label>
         <p class="note" id="submit-status" hidden></p>
+        <p class="note rule" id="submit-rule-note" data-i18n="submitRulesNote">禁止上传政治敏感、色情、血腥、暴力等违规内容，一经发现一律拒绝。</p>
+        <label class="check submit-consent"><input id="submit-rules" type="checkbox" /> <span data-i18n="submitRules">我确认没有上传政治、色情、血腥、暴力等违规内容</span></label>
         <button type="submit" class="export" id="submit-send" data-i18n="submitSend">发送</button>
       </form>
     </div>
@@ -169,6 +171,6 @@
       </figure>
     </div>
   </div>
-  <script src="app.js?v=20260926g"></script>
+  <script src="app.js?v=20260926h"></script>
  </body>
 </html>

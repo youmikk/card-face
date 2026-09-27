@@ -128,6 +128,7 @@ aside section, .legal { padding: 16px; }
 .head span, .muted, .note, .legal, .drop small { color: var(--muted); }
 h2 { margin: 0; font-size: 15px; }
 .note, .legal, .muted { font-size: 12px; line-height: 1.55; }
+.note.rule { color: #b4453a; font-weight: 600; }
 .legal { margin: 0; padding: 12px 14px; }
 
 .stage {

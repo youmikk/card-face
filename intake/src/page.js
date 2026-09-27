@@ -209,8 +209,9 @@ export const PAGE_TEMPLATE = `<!doctype html>
   .card[data-status="hidden"] { border-style: dashed; background: #fbfcfe; }
   .card[data-status="hidden"] .frame img { filter: saturate(.45); }
   .frame {
-    position: relative; aspect-ratio: 16 / 9; min-height: 150px;
-    display: grid; place-items: center; padding: 10px;
+    /* 预览限高：图再大也不把名称/字段挤出视野（宽屏下卡片很宽时尤其明显） */
+    position: relative; aspect-ratio: 16 / 9; min-height: 96px; max-height: 176px;
+    display: grid; place-items: center; padding: 8px;
     background: #f1f4f9; border-bottom: 1px solid var(--line);
   }
   .frame img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: center; }
